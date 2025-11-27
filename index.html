@@ -667,7 +667,7 @@
       getDownloadURL
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
 
-    // Your Firebase config (FIXED storageBucket)
+    // Firebase config (paths unchanged, storageBucket fixed)
     const firebaseConfig = {
       apiKey: "AIzaSyBG2JNN8K6x_W_wLlJawc0Gwk08ixwJSHM",
       authDomain: "my-baby-35bb9.firebaseapp.com",
@@ -689,7 +689,7 @@
       const heart = document.createElement('div');
       heart.className = 'floating-heart';
       heart.textContent = '❤';
-      const x = 40 + Math.random() * 20; // center-ish
+      const x = 40 + Math.random() * 20;
       const y = 70 + Math.random() * 10;
       heart.style.left = x + 'vw';
       heart.style.top = y + 'vh';
@@ -711,10 +711,10 @@
     }, 4000);
 
     // ---------- IMPORTANT DATES CONFIG ----------
-    const DATE_MET = "2025-08-16";           // day you first met
-    const DATE_OFFICIAL = "2025-10-25";      // day you became official
-    const HER_BIRTHDAY_MM_DD = "07-05";      // her birthday (month-day)
-    const NEXT_TRIP_DATE = "2025-04-20";     // next planned trip (or "" if none)
+    const DATE_MET = "2025-08-16";
+    const DATE_OFFICIAL = "2025-10-25";
+    const HER_BIRTHDAY_MM_DD = "07-05";
+    const NEXT_TRIP_DATE = "2025-04-20";
 
     const daysSinceMetEl = document.getElementById('daysSinceMet');
     const daysSinceOfficialEl = document.getElementById('daysSinceOfficial');
@@ -753,9 +753,7 @@
       const [mm, dd] = HER_BIRTHDAY_MM_DD.split('-').map(Number);
       let year = now.getFullYear();
       let bd = new Date(year, mm - 1, dd);
-      if (bd < now) {
-        bd = new Date(year + 1, mm - 1, dd);
-      }
+      if (bd < now) bd = new Date(year + 1, mm - 1, dd);
       return bd;
     }
 
@@ -998,13 +996,12 @@
     let selectionMarker = null;
 
     function initMap() {
-      map = L.map('map').setView([20, 0], 2); // World view
+      map = L.map('map').setView([20, 0], 2);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
       markersLayer = L.layerGroup().addTo(map);
 
-      // Click on map to set coords
       map.on('click', (e) => {
         const { lat, lng } = e.latlng;
         placeLatInput.value = lat.toFixed(6);
@@ -1082,6 +1079,7 @@
         placeForm.reset();
         setTodayDefaults();
         spawnHearts();
+        alert('Place saved 💕');
       } catch (err) {
         console.error('Place photo upload error:', err);
         alert('Error saving place/photo: ' + (err?.message || err?.code || 'unknown error'));
@@ -1111,7 +1109,6 @@
         const lng = parseFloat(place.lng);
         const dateStr = place.date ? new Date(place.date).toLocaleDateString() : 'Unknown date';
 
-        // List item
         const div = document.createElement('div');
         div.className = 'item';
         let inner = `
@@ -1139,7 +1136,6 @@
         div.innerHTML = inner;
         placeList.appendChild(div);
 
-        // Map marker
         if (!isNaN(lat) && !isNaN(lng)) {
           const marker = L.marker([lat, lng]);
           let popupText = `<strong>${place.name || 'Place'}</strong><br>${dateStr}`;
@@ -1160,7 +1156,6 @@
 
     onValue(placesRef, renderPlaces);
 
-    // Edit / Delete actions for places
     placeList.addEventListener('click', async (e) => {
       const btn = e.target.closest('button[data-id]');
       if (!btn) return;
@@ -1203,7 +1198,7 @@
       }
     });
 
-    // ---------- Photos (Firebase Storage upload) ----------
+    // ---------- Photos (Storage upload) ----------
     const photoForm = document.getElementById('photoForm');
     const photoGrid = document.getElementById('photoGrid');
     const photosRef = dbRef(db, 'photos');
@@ -1233,6 +1228,7 @@
 
         photoForm.reset();
         spawnHearts();
+        alert('Photo added successfully 💖');
       } catch (err) {
         console.error('Photo upload error:', err);
         alert('Error uploading photo: ' + (err?.message || err?.code || 'unknown error'));
@@ -1252,7 +1248,6 @@
 
       const entries = Object.entries(data);
       entries.forEach(([id, p]) => {
-        // Gallery
         const card = document.createElement('div');
         card.className = 'photo-card';
         const img = document.createElement('img');
@@ -1265,7 +1260,6 @@
         card.appendChild(cap);
         photoGrid.appendChild(card);
 
-        // Option for places select
         const opt = document.createElement('option');
         opt.value = p.url;
         opt.textContent = p.caption || 'Photo';
@@ -1289,10 +1283,10 @@
     const moodStatsSummary = document.getElementById('moodStatsSummary');
     const moodStatsList = document.getElementById('moodStatsList');
 
-    let moods = {}; // { 'YYYY-MM-DD': { color, text } }
+    let moods = {};
     const todayNow = new Date();
     let currentYear = todayNow.getFullYear();
-    let currentMonth = todayNow.getMonth(); // 0-11
+    let currentMonth = todayNow.getMonth();
 
     function dateKey(y, m, d) {
       return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -1343,7 +1337,6 @@
       }
     }
 
-    // Mood stats based on keywords in mood.text
     function updateMoodStats() {
       const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
       let total = 0;
@@ -1352,7 +1345,6 @@
       let stressed = 0;
       let other = 0;
 
-      // For streak: only happy or chill count as "good"
       let currentGoodStreak = 0;
       let longestGoodStreak = 0;
 
