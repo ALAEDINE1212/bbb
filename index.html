@@ -667,13 +667,13 @@
       getDownloadURL
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
 
-    // Your Firebase config
+    // Your Firebase config (FIXED storageBucket)
     const firebaseConfig = {
       apiKey: "AIzaSyBG2JNN8K6x_W_wLlJawc0Gwk08ixwJSHM",
       authDomain: "my-baby-35bb9.firebaseapp.com",
       databaseURL: "https://my-baby-35bb9-default-rtdb.firebaseio.com",
       projectId: "my-baby-35bb9",
-      storageBucket: "my-baby-35bb9.firebasestorage.app",
+      storageBucket: "my-baby-35bb9.appspot.com",
       messagingSenderId: "1022726711006",
       appId: "1:1022726711006:web:22fb3e65b46e7fecdb444f",
       measurementId: "G-42VFML631W"
@@ -711,7 +711,6 @@
     }, 4000);
 
     // ---------- IMPORTANT DATES CONFIG ----------
-    
     const DATE_MET = "2025-08-16";           // day you first met
     const DATE_OFFICIAL = "2025-10-25";      // day you became official
     const HER_BIRTHDAY_MM_DD = "07-05";      // her birthday (month-day)
@@ -1084,8 +1083,8 @@
         setTodayDefaults();
         spawnHearts();
       } catch (err) {
-        console.error(err);
-        alert('Error saving place. Please try again.');
+        console.error('Place photo upload error:', err);
+        alert('Error saving place/photo: ' + (err?.message || err?.code || 'unknown error'));
       }
     });
 
@@ -1235,8 +1234,8 @@
         photoForm.reset();
         spawnHearts();
       } catch (err) {
-        console.error(err);
-        alert('Error uploading photo. Please try again.');
+        console.error('Photo upload error:', err);
+        alert('Error uploading photo: ' + (err?.message || err?.code || 'unknown error'));
       }
     });
 
