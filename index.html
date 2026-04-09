@@ -586,6 +586,97 @@
       display: block
     }
 
+    /* ── EDITABLE MEETING CARD ── */
+    .sc.editable {
+      cursor: pointer;
+      position: relative
+    }
+
+    .sc.editable:hover {
+      border-color: rgba(100, 200, 255, .4);
+      background: rgba(100, 180, 255, .04)
+    }
+
+    .sc.editable:hover .edit-hint {
+      opacity: 1
+    }
+
+    .edit-hint {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: .62rem;
+      color: rgba(120, 200, 255, .75);
+      opacity: 0;
+      transition: opacity var(--t) var(--ease);
+      pointer-events: none
+    }
+
+    /* ── DATE POPUP ── */
+    .date-popup {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, .65);
+      backdrop-filter: blur(8px)
+    }
+
+    .date-popup.open {
+      display: flex
+    }
+
+    .date-popup-box {
+      background: var(--s1);
+      border: 1px solid var(--bhi);
+      border-radius: var(--rl);
+      padding: 30px 28px 24px;
+      width: min(340px, 90vw);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, .6);
+      animation: dpIn .25s var(--ease)
+    }
+
+    @keyframes dpIn {
+      from {
+        opacity: 0;
+        transform: scale(.93) translateY(10px)
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0)
+      }
+    }
+
+    .date-popup-box h3 {
+      font-family: var(--fd);
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: var(--tx);
+      margin-bottom: 6px
+    }
+
+    .date-popup-box p {
+      font-size: .82rem;
+      color: var(--tx3);
+      margin-bottom: 18px;
+      line-height: 1.6
+    }
+
+    .date-popup-box input[type=date] {
+      margin-bottom: 18px;
+      font-size: .95rem;
+      padding: 11px 14px
+    }
+
+    .date-popup-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end
+    }
+
     /* ── PHOTOS ── */
     .pgrid {
       display: grid;
@@ -650,39 +741,12 @@
     }
 
     /* ── MOOD CAL ── */
-    .mrow {
-      display: grid;
-      grid-template-columns: 1fr 76px 1fr;
-      gap: 10px;
-      margin-bottom: 14px
-    }
-
     .mcal {
       background: var(--s2);
       border: 1px solid var(--border);
       border-radius: var(--r);
       overflow: hidden;
       margin-top: 14px
-    }
-
-    .cnav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-      background: var(--s3)
-    }
-
-    .ctitle {
-      font-family: var(--fd);
-      font-size: .95rem;
-      color: var(--tx)
-    }
-
-    .cnav .btn {
-      padding: 4px 12px;
-      font-size: .76rem
     }
 
     .cgrid {
@@ -1120,10 +1184,6 @@
         grid-template-columns: repeat(2, 1fr)
       }
 
-      .mrow {
-        grid-template-columns: 1fr 1fr
-      }
-
       .ph h2 {
         font-size: 1.45rem
       }
@@ -1145,10 +1205,6 @@
       .sgrid {
         grid-template-columns: 1fr 1fr
       }
-
-      .mrow {
-        grid-template-columns: 1fr
-      }
     }
   </style>
 </head>
@@ -1161,6 +1217,19 @@
       <div class="hh">🌹 💖 🌹</div>
       <h2>welcome back,<br><em>my Baby Ines</em> 💖</h2>
       <p>tap anywhere to enter</p>
+    </div>
+  </div>
+
+  <!-- NEXT MEETING DATE POPUP -->
+  <div class="date-popup" id="meetingPopup">
+    <div class="date-popup-box">
+      <h3>📅 Next Meeting</h3>
+      <p>When are you seeing each other next?<br>Pick the date and we'll count down together 💞</p>
+      <input type="date" id="nextMeetingInput" />
+      <div class="date-popup-btns">
+        <button class="btn bg" id="popupCancel">Cancel</button>
+        <button class="btn bp" id="popupSave">Save date 💖</button>
+      </div>
     </div>
   </div>
 
@@ -1326,11 +1395,9 @@
           <div class="panel" style="margin-bottom:18px">
             <div class="ptitle"><span class="picon">🌈</span>Log Today's Mood</div>
             <div class="fg"><label>Day</label><input id="moDa" type="date" /></div>
-
             <div class="mood-colour-row">
               <label>Colour — pick a mood</label>
               <div class="swatches" id="swatchRow">
-                <!-- 10 preset swatches -->
                 <button class="sw sel" data-color="#f4a5b5" title="Happy 🌸" style="background:#f4a5b5"></button>
                 <button class="sw" data-color="#f9d56e" title="Joyful ☀️" style="background:#f9d56e"></button>
                 <button class="sw" data-color="#e8607a" title="Love ❤️" style="background:#e8607a"></button>
@@ -1341,21 +1408,17 @@
                 <button class="sw" data-color="#d4956a" title="Cozy 🍂" style="background:#d4956a"></button>
                 <button class="sw" data-color="#8090a8" title="Stressed 🌧️" style="background:#8090a8"></button>
                 <button class="sw" data-color="#6b6070" title="Low 🖤" style="background:#6b6070"></button>
-                <!-- custom picker toggle -->
                 <button class="sw-custom" id="swCustomBtn" title="Custom colour">✦</button>
               </div>
-              <!-- custom colour picker, hidden by default -->
               <div class="custom-picker-wrap" id="customPickerWrap">
                 <input type="color" id="moCo" value="#e8607a" />
                 <span>Pick any colour</span>
               </div>
-              <!-- selected colour preview -->
               <div class="sel-preview">
                 <div class="sel-dot" id="selDot" style="background:#f4a5b5"></div>
                 <span id="selLabel">Happy 🌸 selected</span>
               </div>
             </div>
-
             <div class="fg"><label>Mood word</label><input id="moTx" type="text" placeholder="happy, cozy, tired..." />
             </div>
             <button class="btn bp" id="moSub" style="margin-top:6px">Save mood 🌈</button>
@@ -1390,7 +1453,7 @@
           <div class="uinfo">
             <strong>📋 If uploads fail:</strong><br>
             Firebase Console → Storage → Rules → set <code>allow read, write: if true;</code><br>
-            CORS errors? Run: <code>gsutil cors set cors.json gs://my-baby-35bb9.appspot.com</code>
+            CORS errors? Run: <code>gsutil cors set cors.json gs://my-baby-35bb9.firebasestorage.app</code>
           </div>
           <div class="fg"><label>Choose photo</label><input id="phF" type="file" accept="image/*" /></div>
           <div class="fg"><label>Caption</label><input id="phC" type="text" placeholder="That day at the park..." />
@@ -1415,18 +1478,29 @@
     import { getDatabase, ref as dr, push, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
     import { getStorage, ref as sr, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
 
-    const cfg = { apiKey: "AIzaSyBG2JNN8K6x_W_wLlJawc0Gwk08ixwJSHM", authDomain: "my-baby-35bb9.firebaseapp.com", databaseURL: "https://my-baby-35bb9-default-rtdb.firebaseio.com", projectId: "my-baby-35bb9", storageBucket: "my-baby-35bb9.appspot.com", messagingSenderId: "1022726711006", appId: "1:1022726711006:web:22fb3e65b46e7fecdb444f", measurementId: "G-42VFML631W" };
-    const app = initializeApp(cfg); getAnalytics(app);
+    /* ── FIREBASE CONFIG ── */
+    const cfg = {
+      apiKey: "AIzaSyBG2JNN8K6x_W_wLlJawc0Gwk08ixwJSHM",
+      authDomain: "my-baby-35bb9.firebaseapp.com",
+      databaseURL: "https://my-baby-35bb9-default-rtdb.firebaseio.com",
+      projectId: "my-baby-35bb9",
+      storageBucket: "my-baby-35bb9.firebasestorage.app",
+      messagingSenderId: "1022726711006",
+      appId: "1:1022726711006:web:22fb3e65b46e7fecdb444f",
+      measurementId: "G-42VFML631W"
+    };
+    const app = initializeApp(cfg);
+    getAnalytics(app);
     const db = getDatabase(app);
-    const storage = getStorage(app, "gs://my-baby-35bb9.appspot.com");
+    const storage = getStorage(app, "gs://my-baby-35bb9.firebasestorage.app");
 
-    /* ── DATES CONFIG ── */
+    /* ── DATES CONFIG — edit these ── */
     const DATE_MET = "2025-08-16";
     const DATE_OFF = "2025-10-25";
-    const INES_BD = "07-05";
-    const BF_BD = "04-12";
+    const INES_BD = "07-05";   // MM-DD
+    const BF_BD = "04-12";   // MM-DD  (12 April)
     const BF_YEAR = 2006;
-    const TRIP = "";  // e.g. "2026-05-16"
+    const TRIP = "";        // e.g. "2026-05-16"
 
     /* ── HELPERS ── */
     const $ = id => document.getElementById(id);
@@ -1451,7 +1525,7 @@
     ov.addEventListener('click', () => { ov.classList.add('oh'); setTimeout(() => ov.remove(), 700); });
     setTimeout(() => { if (document.body.contains(ov)) { ov.classList.add('oh'); setTimeout(() => ov.remove(), 700); } }, 4500);
 
-    /* ── NAV ── */
+    /* ── NAVIGATION ── */
     const PM = {
       home: { t: '🏠 Home', s: 'Your relationship dashboard' },
       story: { t: '📖 Our Story', s: 'Timeline of our moments together' },
@@ -1479,6 +1553,8 @@
 
     /* ── DASHBOARD ── */
     let mvCount = 0;
+    let nextMeetingDate = localStorage.getItem('nextMeetingDate') || '';
+
     function dash() {
       const mv = nextMiv();
       const mvd = mv ? Math.ceil((mv - new Date()) / 86400000) : null;
@@ -1488,18 +1564,58 @@
       const bbd = bb ? Math.ceil((bb - new Date()) / 86400000) : null;
       const bage = bb ? (bb.getFullYear() - BF_YEAR) : null;
       const td = TRIP ? dUntil(TRIP) : null;
+
+      // Next meeting countdown
+      let nmNum = '?', nmSub = '<span class="ss" style="color:rgba(120,200,255,.7)">Tap to set date ✏️</span>';
+      if (nextMeetingDate) {
+        const d = dUntil(nextMeetingDate);
+        if (d > 0) { nmNum = d; nmSub = `<span class="ss">${nd(new Date(nextMeetingDate + 'T00:00:00'))}</span>`; }
+        else if (d === 0) { nmNum = '🎉'; nmSub = '<span class="ss">Today is the day!</span>'; }
+        else { nmNum = '✓'; nmSub = '<span class="ss" style="color:rgba(120,200,255,.7)">Passed — tap to update ✏️</span>'; }
+      }
+
       const cards = [
         { n: DATE_MET ? dBetween(DATE_MET) : '—', l: 'Days Since We Met', s: DATE_MET ? `<span class="ss">${nd(new Date(DATE_MET + 'T00:00:00'))}</span>` : '', g: false },
         { n: DATE_OFF ? dBetween(DATE_OFF) : '—', l: 'Days Together', s: DATE_OFF ? `<span class="ss">since ${nd(new Date(DATE_OFF + 'T00:00:00'))}</span>` : '', g: false },
         { n: mvCount, l: 'Movies Watched', s: '<span class="ss">together 🍿</span>', g: false, id: 'dc-mv' },
+        { n: nmNum, l: 'Days to Next Meeting', s: nmSub, g: false, id: 'dc-nm', editable: true },
         ...(mvd !== null ? [{ n: mvd, l: 'Days to Monthiversary', s: `<span class="ss">${nd(mv)}</span>`, g: false }] : []),
         ...(ibd !== null ? [{ n: ibd, l: "Ines's Birthday 🎂", s: `<span class="ss">${nd(ib)}</span>`, g: true }] : []),
-        ...(bbd !== null ? [{ n: bbd, l: `His Birthday 🎉`, s: `<span class="ss">Turning ${bage} · ${nd(bb)}</span>`, g: true }] : []),
+        ...(bbd !== null ? [{ n: bbd, l: 'His Birthday 🎉', s: `<span class="ss">Turning ${bage} · ${nd(bb)}</span>`, g: true }] : []),
         ...(td !== null && td >= 0 ? [{ n: td, l: 'Days to Our Trip ✈️', s: `<span class="ss">${nd(new Date(TRIP + 'T00:00:00'))}</span>`, g: true }] : []),
       ];
-      $('sgrid').innerHTML = cards.map(c => `<div class="sc${c.g ? ' ga' : ''}"${c.id ? ` id="${c.id}"` : ''}><span class="sn">${c.n}</span><span class="sl">${c.l}</span>${c.s || ''}</div>`).join('');
+
+      $('sgrid').innerHTML = cards.map(c => `
+    <div class="sc${c.g ? ' ga' : ''}${c.editable ? ' editable' : ''}"${c.id ? ` id="${c.id}"` : ''}>
+      ${c.editable ? '<span class="edit-hint">✏️ edit</span>' : ''}
+      <span class="sn">${c.n}</span>
+      <span class="sl">${c.l}</span>
+      ${c.s || ''}
+    </div>`).join('');
+
+      const nmCard = $('dc-nm');
+      if (nmCard) nmCard.addEventListener('click', openMeetingPopup);
     }
-    dash(); setInterval(dash, 60000);
+    dash();
+    setInterval(dash, 60000);
+
+    /* next meeting popup */
+    function openMeetingPopup() {
+      $('nextMeetingInput').value = nextMeetingDate || '';
+      $('meetingPopup').classList.add('open');
+      setTimeout(() => $('nextMeetingInput').focus(), 100);
+    }
+    $('popupCancel').addEventListener('click', () => $('meetingPopup').classList.remove('open'));
+    $('meetingPopup').addEventListener('click', e => { if (e.target === $('meetingPopup')) $('meetingPopup').classList.remove('open'); });
+    $('popupSave').addEventListener('click', () => {
+      const v = $('nextMeetingInput').value;
+      if (!v) return;
+      nextMeetingDate = v;
+      localStorage.setItem('nextMeetingDate', v);
+      $('meetingPopup').classList.remove('open');
+      dash();
+      hearts();
+    });
 
     function updMv(n) {
       mvCount = n;
@@ -1531,7 +1647,7 @@
     onValue(sRef, rStory);
     $('storyList').addEventListener('click', async e => {
       const b = e.target.closest('[data-id]'); if (!b) return;
-      const { id } = b.dataset, { a } = b.dataset, ev = sData[id]; if (!ev) return;
+      const { id, a } = b.dataset, ev = sData[id]; if (!ev) return;
       if (a === 'del' && confirm('Delete?')) await remove(dr(db, 'storyEvents/' + id));
       else if (a === 'edit') {
         const nd2 = prompt('Date:', ev.date || ''); if (!nd2) return;
@@ -1610,15 +1726,22 @@
     });
 
     $('plSub').addEventListener('click', async () => {
-      const n = $('plN').value.trim(), d = $('plD').value, la = parseFloat($('plLa').value), lo = parseFloat($('plLo').value), no = $('plNo').value.trim();
+      const n = $('plN').value.trim(), d = $('plD').value;
+      const la = parseFloat($('plLa').value), lo = parseFloat($('plLo').value);
+      const no = $('plNo').value.trim();
       if (!n || !d || isNaN(la) || isNaN(lo)) return alert('Please enter name, date, and valid coordinates.');
       let pu = '', pc = '';
       const su = $('plPs').value, pf = $('plPf').files[0];
       try {
-        if (pf) { const ref = sr(storage, `placePhotos/${Date.now()}_${pf.name}`); await uploadBytes(ref, pf); pu = await getDownloadURL(ref); pc = `Photo from ${n}`; }
-        else if (su) { pu = su; pc = $('plPs').options[$('plPs').selectedIndex].getAttribute('data-caption') || ''; }
+        if (pf) {
+          const ref = sr(storage, `placePhotos/${Date.now()}_${pf.name}`);
+          await uploadBytes(ref, pf); pu = await getDownloadURL(ref); pc = `Photo from ${n}`;
+        } else if (su) {
+          pu = su; pc = $('plPs').options[$('plPs').selectedIndex].getAttribute('data-caption') || '';
+        }
         await push(plRef, { name: n, date: d, lat: la, lng: lo, note: no, photoUrl: pu, photoCaption: pc });
-        ['plN', 'plNo', 'plML', 'plLa', 'plLo'].forEach(id => $(id).value = ''); $('plD').value = iso(); $('plPf').value = '';
+        ['plN', 'plNo', 'plML', 'plLa', 'plLo'].forEach(id => $(id).value = '');
+        $('plD').value = iso(); $('plPf').value = '';
         hearts(); alert('Place saved 💕');
       } catch (err) { alert('Error: ' + (err?.message || err?.code || 'unknown')); }
     });
@@ -1631,9 +1754,11 @@
       entries.sort(([, a], [, b]) => (b.date || '').localeCompare(a.date || ''));
       const bnds = [];
       el.innerHTML = entries.map(([id, p]) => {
-        const la = parseFloat(p.lat), lo = parseFloat(p.lng), ds = p.date ? new Date(p.date).toLocaleDateString() : '?';
+        const la = parseFloat(p.lat), lo = parseFloat(p.lng);
+        const ds = p.date ? new Date(p.date).toLocaleDateString() : '?';
         if (!isNaN(la) && !isNaN(lo)) {
-          const mk = L.marker([la, lo]); let pop = `<strong>${p.name || 'Place'}</strong><br>${ds}`;
+          const mk = L.marker([la, lo]);
+          let pop = `<strong>${p.name || 'Place'}</strong><br>${ds}`;
           if (p.note) pop += `<br><small>${p.note}</small>`;
           if (p.photoUrl) pop += `<br><img src="${p.photoUrl}" style="max-width:130px;border-radius:6px;margin-top:4px">`;
           mk.bindPopup(pop).addTo(markL); bnds.push([la, lo]);
@@ -1643,7 +1768,10 @@
       <div class="lim">${ds}</div>
       ${p.note ? `<div class="lib">${p.note}</div>` : ''}
       ${p.photoUrl ? `<img src="${p.photoUrl}" style="max-width:100%;border-radius:8px;margin-top:8px" alt="${p.photoCaption || ''}">` : ''}
-      <div class="ibs"><button class="btn be" data-id="${id}" data-a="edit">Edit</button><button class="btn bd" data-id="${id}" data-a="del">Delete</button></div>
+      <div class="ibs">
+        <button class="btn be" data-id="${id}" data-a="edit">Edit</button>
+        <button class="btn bd" data-id="${id}" data-a="del">Delete</button>
+      </div>
     </div>`;
       }).join('');
       if (bnds.length) map.fitBounds(bnds, { padding: [30, 30] });
@@ -1673,16 +1801,18 @@
       if (!f) { st.style.color = '#e86060'; st.textContent = '⚠️ Please choose a photo.'; return; }
       st.style.color = 'var(--tx3)'; st.textContent = '⏳ Uploading…';
       try {
-        const ref = sr(storage, `photos/${Date.now()}_${f.name}`);
-        await uploadBytes(ref, f); const url = await getDownloadURL(ref);
-        await push(phRef, { url, caption: c, path: `photos/${Date.now()}_${f.name}` });
+        const ts = Date.now();
+        const ref = sr(storage, `photos/${ts}_${f.name}`);
+        await uploadBytes(ref, f);
+        const url = await getDownloadURL(ref);
+        await push(phRef, { url, caption: c, path: `photos/${ts}_${f.name}` });
         $('phF').value = ''; $('phC').value = '';
         st.style.color = '#6bcf7f'; st.textContent = '✅ Photo uploaded!';
         setTimeout(() => st.textContent = '', 3000); hearts();
       } catch (err) {
         st.style.color = '#e86060';
         if (err?.code === 'storage/unauthorized') st.innerHTML = '❌ Permission denied — fix Firebase Storage Rules.';
-        else if (err?.message?.includes('CORS')) st.innerHTML = '❌ CORS error — configure your Storage bucket.';
+        else if (err?.message?.includes('CORS')) st.innerHTML = '❌ CORS error — run gsutil cors set again.';
         else st.textContent = '❌ ' + (err?.message || err?.code || 'Unknown');
       }
     });
@@ -1695,7 +1825,10 @@
       grid.innerHTML = Object.entries(data).map(([, p]) => `
     <div class="pc"><img src="${p.url}" alt="${p.caption || ''}" loading="lazy"><div class="pc-cap">${p.caption || ''}</div></div>`).join('');
       Object.entries(data).forEach(([, p]) => {
-        const o = document.createElement('option'); o.value = p.url; o.textContent = p.caption || 'Photo'; o.setAttribute('data-caption', p.caption || ''); sel.appendChild(o);
+        const o = document.createElement('option');
+        o.value = p.url; o.textContent = p.caption || 'Photo';
+        o.setAttribute('data-caption', p.caption || '');
+        sel.appendChild(o);
       });
     }
     onValue(phRef, rPhotos);
@@ -1705,49 +1838,25 @@
     const tn = new Date(); let cY = tn.getFullYear(), cM = tn.getMonth();
     function dk(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
 
-    /* swatch palette labels */
-    const SWATCH_LABELS = {
-      '#f4a5b5': 'Happy 🌸', '#f9d56e': 'Joyful ☀️', '#e8607a': 'Love ❤️',
-      '#7ec8a0': 'Calm 🌿', '#6bbfd4': 'Chill 🌊', '#7ab4e0': 'Sad 💙',
-      '#c49fd8': 'Dreamy 💜', '#d4956a': 'Cozy 🍂', '#8090a8': 'Stressed 🌧️',
-      '#6b6070': 'Low 🖤'
-    };
-
     let selectedColor = '#f4a5b5';
-    let usingCustom = false;
 
     function setColor(hex, label, isCustom) {
-      selectedColor = hex; usingCustom = !!isCustom;
+      selectedColor = hex;
       $('selDot').style.background = hex;
       $('selLabel').textContent = (label || 'Custom colour') + ' selected';
-      // update swatch ring
-      document.querySelectorAll('.sw').forEach(s => {
-        s.classList.toggle('sel', !isCustom && s.dataset.color === hex);
-      });
+      document.querySelectorAll('.sw').forEach(s => s.classList.toggle('sel', !isCustom && s.dataset.color === hex));
       $('swCustomBtn').classList.toggle('sel', !!isCustom);
     }
 
-    // swatch click
     $('swatchRow').addEventListener('click', e => {
       const sw = e.target.closest('.sw');
-      if (sw) {
-        setColor(sw.dataset.color, sw.getAttribute('title'), false);
-        $('customPickerWrap').classList.remove('show');
-        return;
-      }
+      if (sw) { setColor(sw.dataset.color, sw.getAttribute('title'), false); $('customPickerWrap').classList.remove('show'); return; }
       if (e.target.closest('#swCustomBtn')) {
         $('customPickerWrap').classList.toggle('show');
-        if ($('customPickerWrap').classList.contains('show')) {
-          const cv = $('moCo').value;
-          setColor(cv, 'Custom colour', true);
-        }
+        if ($('customPickerWrap').classList.contains('show')) setColor($('moCo').value, 'Custom colour', true);
       }
     });
-
-    // custom picker live update
-    $('moCo').addEventListener('input', () => {
-      setColor($('moCo').value, 'Custom colour', true);
-    });
+    $('moCo').addEventListener('input', () => setColor($('moCo').value, 'Custom colour', true));
 
     function buildCal(y, m) {
       const g = $('calg'); g.innerHTML = '';
@@ -1794,7 +1903,8 @@
 
     /* ── DEFAULTS ── */
     ['sD', 'mvD', 'meD', 'moDa', 'plD'].forEach(id => { const e = $(id); if (e && !e.value) e.value = iso(); });
-    buildCal(cY, cM); updMStats();
+    buildCal(cY, cM);
+    updMStats();
   </script>
 </body>
 
