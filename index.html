@@ -2497,21 +2497,20 @@
     updMStats();
   </script>
 
-  <!-- TOGETHER: WebRTC module (separate from existing Firebase module) -->
+  <!-- TOGETHER: WebRTC module -->
   <script type="module">
-    import { getDatabase, ref, set, push, onValue, remove, onDisconnect }
+    import { getDatabase, ref, set, push, onValue, onChildAdded, remove, onDisconnect }
       from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
     import { getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 
-    const db  = getDatabase(getApp());
-    const $   = id => document.getElementById(id);
+    const db = getDatabase(getApp());
+    const $  = id => document.getElementById(id);
 
-    /* ── ICE / STUN config ── */
+    /* ── ICE / STUN + public TURN ── */
     const ICE_CFG = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun.relay.metered.ca:80'  },
         {
           urls: [
             'turn:standard.relay.metered.ca:80',
@@ -2526,29 +2525,28 @@
     };
 
     /* ── State ── */
-    let pc        = null;   // RTCPeerConnection
+    let pc           = null;
     let localStream  = null;
     let screenStream = null;
-    let roomId    = null;
-    let isHost    = false;
-    let micOn     = true;
-    let camOn     = true;
-    let screenOn  = false;
-    let timerInt  = null;
-    let timerSec  = 0;
-    let chatUnsubscribe = null;
-    let iceSubs   = [];
-    let myName    = 'You';  // could be 'Alaedine'
+    let roomId       = null;
+    let isHost       = false;
+    let micOn        = true;
+    let camOn        = true;
+    let screenOn     = false;
+    let timerInt     = null;
+    let timerSec     = 0;
+    let unsubs       = [];        // Firebase unsubscribe functions
+    let iceBuffer    = [];        // candidates buffered before remoteDesc is set
+    let remoteDescSet = false;
 
-    /* ── Helpers ── */
-    function genCode() {
-      return Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
+    /* ── Label helpers (who am I vs who is remote) ── */
+    function myLabel()     { return isHost ? 'Alaedine' : 'Ines'; }
+    function remoteLabel() { return isHost ? 'Ines'     : 'Alaedine'; }
 
+    /* ── UI helpers ── */
     function setStatus(txt, state) {
-      const dot = $('tgDot'), stxt = $('tgStatusTxt');
-      dot.className = 'tg-dot ' + (state || '');
-      stxt.textContent = txt;
+      $('tgDot').className   = 'tg-dot ' + (state || '');
+      $('tgStatusTxt').textContent = txt;
     }
 
     function showLobby() {
@@ -2561,41 +2559,105 @@
       $('tgCall').classList.add('show');
     }
 
+    function updateLabels() {
+      // video box labels
+      document.querySelectorAll('#tgRemoteBox .tg-vbox-label').forEach(el => el.textContent = remoteLabel());
+      document.querySelectorAll('#tgLocalBox  .tg-vbox-label').forEach(el => el.textContent = 'You (' + myLabel() + ')');
+      // waiting avatar text
+      $('tgRemoteAvatar').querySelector('.av-name').textContent = 'Waiting for ' + remoteLabel() + '…';
+      $('tgLocalAvatar').querySelector('.av-name').textContent  = myLabel();
+    }
+
     function startTimer() {
       timerSec = 0;
       clearInterval(timerInt);
       timerInt = setInterval(() => {
         timerSec++;
-        const m = String(Math.floor(timerSec / 60)).padStart(2, '0');
-        const s = String(timerSec % 60).padStart(2, '0');
-        $('tgTimer').textContent = m + ':' + s;
+        $('tgTimer').textContent =
+          String(Math.floor(timerSec / 60)).padStart(2,'0') + ':' +
+          String(timerSec % 60).padStart(2,'0');
       }, 1000);
     }
 
     function stopTimer() { clearInterval(timerInt); $('tgTimer').textContent = '00:00'; }
 
+    function sysMsg(txt) {
+      const d = document.createElement('div');
+      d.className = 'tg-msg';
+      d.style.cssText = 'align-self:center;font-size:.75rem;color:var(--tx4);background:transparent;border:none';
+      d.textContent   = txt;
+      $('tgMsgs').appendChild(d);
+      $('tgMsgs').scrollTop = $('tgMsgs').scrollHeight;
+    }
+
     function addChatMsg(text, mine, name) {
-      const msgs = $('tgMsgs');
       const d = document.createElement('div');
       d.className = 'tg-msg' + (mine ? ' mine' : '');
       d.innerHTML = (name && !mine ? `<div class="tg-msg-name">${name}</div>` : '') + text;
-      msgs.appendChild(d);
-      msgs.scrollTop = msgs.scrollHeight;
+      $('tgMsgs').appendChild(d);
+      $('tgMsgs').scrollTop = $('tgMsgs').scrollHeight;
     }
 
-    /* ── Attach local stream to video element ── */
-    function attachLocal(stream) {
-      const vid = $('tgLocalVideo');
-      vid.srcObject = stream;
-      $('tgLocalAvatar').classList.remove('show');
+    /* ── Get camera/mic ── */
+    async function getMedia() {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia(
+          { video: { width:1920, height:1080, facingMode:'user' }, audio: true }
+        );
+        localStream = s;
+        $('tgLocalVideo').srcObject = s;
+        $('tgLocalAvatar').classList.remove('show');
+        return s;
+      } catch(_) {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localStream = s;
+          $('tgLocalVideo').srcObject = s;
+          $('tgLocalAvatar').classList.remove('show');
+          return s;
+        } catch(e) {
+          sysMsg('⚠️ Camera/mic unavailable — screen-share-only mode');
+          return null;
+        }
+      }
+    }
+
+    /* ── Drain ICE buffer once remote description is ready ── */
+    async function drainIceBuffer() {
+      while (iceBuffer.length) {
+        const c = iceBuffer.shift();
+        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(_) {}
+      }
     }
 
     /* ── Build RTCPeerConnection ── */
     function buildPC() {
       if (pc) { pc.close(); pc = null; }
+      remoteDescSet = false;
+      iceBuffer     = [];
       pc = new RTCPeerConnection(ICE_CFG);
 
-      /* remote track */
+      const myRole    = isHost ? 'host'  : 'guest';
+      const theirRole = isHost ? 'guest' : 'host';
+
+      /* send MY ICE candidates to Firebase */
+      pc.onicecandidate = e => {
+        if (e.candidate) push(ref(db, `together/${roomId}/ice/${myRole}`), e.candidate.toJSON());
+      };
+
+      /* receive THEIR ICE candidates — onChildAdded fires once per new item only */
+      const iceSub = onChildAdded(ref(db, `together/${roomId}/ice/${theirRole}`), snap => {
+        const c = snap.val();
+        if (!c) return;
+        if (remoteDescSet && pc) {
+          pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+        } else {
+          iceBuffer.push(c);   // buffer until remote desc is ready
+        }
+      });
+      unsubs.push(iceSub);
+
+      /* when remote stream arrives */
       pc.ontrack = e => {
         const vid = $('tgRemoteVideo');
         if (vid.srcObject !== e.streams[0]) {
@@ -2603,184 +2665,161 @@
           $('tgRemoteAvatar').classList.remove('show');
           setStatus('Connected 💕', 'connected');
           startTimer();
+          sysMsg('✨ ' + remoteLabel() + ' joined the call');
         }
       };
 
-      /* ICE candidates */
-      const myRole   = isHost ? 'host' : 'guest';
-      const theirRole = isHost ? 'guest' : 'host';
-
-      pc.onicecandidate = e => {
-        if (e.candidate) {
-          push(ref(db, `together/${roomId}/ice/${myRole}`), e.candidate.toJSON());
-        }
-      };
-
-      /* listen for their candidates */
-      const iceSub = onValue(ref(db, `together/${roomId}/ice/${theirRole}`), snap => {
-        if (!snap.val() || !pc) return;
-        Object.values(snap.val()).forEach(c => {
-          pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
-        });
-      });
-      iceSubs.push(iceSub);
-
-      /* connection state */
+      /* connection state changes */
       pc.onconnectionstatechange = () => {
         const s = pc.connectionState;
-        if (s === 'connected')     setStatus('Connected 💕', 'connected');
-        if (s === 'connecting')    setStatus('Connecting…', 'connecting');
-        if (s === 'disconnected')  setStatus('Disconnected', 'error');
-        if (s === 'failed')        setStatus('Connection failed ❌', 'error');
+        if (s === 'connected')    { setStatus('Connected 💕', 'connected'); }
+        if (s === 'connecting')   { setStatus('Connecting…', 'connecting'); }
+        if (s === 'disconnected') { setStatus(remoteLabel() + ' disconnected', 'error'); }
+        if (s === 'failed')       { setStatus('Connection failed ❌', 'error'); sysMsg('⚠️ Connection failed — try hanging up and re-joining'); }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'failed') pc.restartIce();
       };
 
       return pc;
     }
 
-    /* ── Get user media ── */
-    async function getMedia() {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { width:1920, height:1080 }, audio: true });
-        localStream = s;
-        attachLocal(s);
-        return s;
-      } catch(err) {
-        // try without HD if browser restricts
-        try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          localStream = s;
-          attachLocal(s);
-          return s;
-        } catch(e) {
-          addChatMsg('⚠️ Camera/mic not available — call will be audio-only or screen-only.', false, 'System');
-          return null;
-        }
-      }
-    }
-
-    /* ── HOST: create offer ── */
+    /* ═══════════════════════════════════════════
+       HOST — creates the room and waits for answer
+       ═══════════════════════════════════════════ */
     async function createRoom() {
-      roomId = genCode();
       isHost = true;
+      roomId = Math.random().toString(36).substring(2,8).toUpperCase();
+
       $('tgCodeDisplay').textContent = roomId;
       $('tgCallCode').textContent    = roomId;
       $('tgBanner').classList.add('show');
 
-      setStatus('Waiting for Ines…', 'connecting');
       showCall();
+      updateLabels();
+      setStatus('Waiting for ' + remoteLabel() + '…', 'connecting');
+      sysMsg('Room ' + roomId + ' created — share the code 💕');
 
       const stream = await getMedia();
       buildPC();
-
       if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
 
+      /* create and store offer */
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      await set(ref(db, `together/${roomId}/offer`), { sdp: offer.sdp, type: offer.type });
+      await set(ref(db, `together/${roomId}/offer`), { type: offer.type, sdp: offer.sdp });
 
-      /* wait for answer */
-      const answerSub = onValue(ref(db, `together/${roomId}/answer`), async snap => {
-        if (!snap.val() || pc.remoteDescription) return;
+      /* wait for guest answer */
+      const answerUnsub = onValue(ref(db, `together/${roomId}/answer`), async snap => {
+        if (!snap.val() || remoteDescSet) return;
         await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
-        setStatus('Call started 💕', 'connected');
+        remoteDescSet = true;
+        await drainIceBuffer();
+        setStatus('Call connecting…', 'connecting');
+        subscribeChat();
       });
-      iceSubs.push(answerSub);
+      unsubs.push(answerUnsub);
 
-      /* cleanup on disconnect */
+      /* auto-cleanup room from Firebase if host closes tab */
       onDisconnect(ref(db, `together/${roomId}`)).remove();
-
-      subscribeChat();
     }
 
-    /* ── GUEST: join with code ── */
+    /* ═════════════════════════════════════════
+       GUEST — joins with a code
+       ═════════════════════════════════════════ */
     async function joinRoom(code) {
-      roomId = code.trim().toUpperCase();
       isHost = false;
-      $('tgCallCode').textContent = roomId;
+      roomId = code.trim().toUpperCase();
 
-      setStatus('Connecting…', 'connecting');
+      $('tgCallCode').textContent = roomId;
       showCall();
+      updateLabels();
+      setStatus('Fetching room…', 'connecting');
+
+      /* check room exists */
+      const offerSnap = await new Promise((res, rej) => {
+        let done = false;
+        const u = onValue(ref(db, `together/${roomId}/offer`), snap => {
+          if (snap.val()) { done = true; u(); res(snap); }
+        });
+        setTimeout(() => { if (!done) { u(); rej(new Error('Room not found')); } }, 8000);
+      }).catch(err => { setStatus('Room not found ❌', 'error'); sysMsg('⚠️ No room with code ' + roomId + '. Is the host already in?'); return null; });
+
+      if (!offerSnap) { showLobby(); return; }
+
+      sysMsg('Joining room ' + roomId + ' 💕');
 
       const stream = await getMedia();
       buildPC();
-
       if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
 
-      /* get offer */
-      const offerSnap = await new Promise(res => {
-        const u = onValue(ref(db, `together/${roomId}/offer`), s => { if (s.val()) { u(); res(s); } });
-      });
-
+      /* set remote description FIRST, then create answer */
       await pc.setRemoteDescription(new RTCSessionDescription(offerSnap.val()));
+      remoteDescSet = true;
+      await drainIceBuffer();   // drain any ICE that arrived before setRemoteDescription
+
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      await set(ref(db, `together/${roomId}/answer`), { sdp: answer.sdp, type: answer.type });
+      await set(ref(db, `together/${roomId}/answer`), { type: answer.type, sdp: answer.sdp });
 
+      setStatus('Connecting…', 'connecting');
       subscribeChat();
     }
 
-    /* ── Chat via Firebase ── */
+    /* ── Chat ── */
     function subscribeChat() {
-      if (chatUnsubscribe) chatUnsubscribe();
-      chatUnsubscribe = onValue(ref(db, `together/${roomId}/chat`), snap => {
-        if (!snap.val()) return;
-        $('tgMsgs').innerHTML = '';
-        Object.values(snap.val()).sort((a,b) => a.ts - b.ts).forEach(m => {
-          addChatMsg(m.text, m.from === myName, m.from);
-        });
+      const chatUnsub = onChildAdded(ref(db, `together/${roomId}/chat`), snap => {
+        const m = snap.val(); if (!m) return;
+        const mine = m.from === myLabel();
+        addChatMsg(m.text, mine, m.from);
       });
+      unsubs.push(chatUnsub);
     }
 
     async function sendChat() {
       const inp = $('tgChatIn'), txt = inp.value.trim();
       if (!txt || !roomId) return;
       inp.value = '';
-      await push(ref(db, `together/${roomId}/chat`), { text: txt, from: myName, ts: Date.now() });
+      await push(ref(db, `together/${roomId}/chat`), { text: txt, from: myLabel(), ts: Date.now() });
     }
 
     /* ── Screen share ── */
     async function toggleScreen() {
       if (screenOn) {
-        // stop screen share
         if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
         $('tgScreenBox').style.display = 'none';
         $('tgVgrid').classList.remove('screenshare-active');
         $('tgScreenBtn').classList.remove('active');
-        // restore camera track if available
-        if (localStream && pc) {
+        const camTrack = localStream && localStream.getVideoTracks()[0];
+        if (pc && camTrack) {
           const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-          const camTrack = localStream.getVideoTracks()[0];
-          if (sender && camTrack) sender.replaceTrack(camTrack);
+          if (sender) sender.replaceTrack(camTrack);
         }
         screenOn = false;
       } else {
         try {
           const s = await navigator.mediaDevices.getDisplayMedia({
-            video: { width: 1920, height: 1080, frameRate: 30 },
-            audio: true
+            video: { width:1920, height:1080, frameRate:30 }, audio: true
           });
           screenStream = s;
-          const screenTrack = s.getVideoTracks()[0];
-          // show local preview
           $('tgScreenVideo').srcObject = s;
           $('tgScreenBox').style.display = 'block';
           $('tgVgrid').classList.add('screenshare-active');
           $('tgScreenBtn').classList.add('active');
           screenOn = true;
-          // replace video track in the peer connection
           if (pc) {
             const sender = pc.getSenders().find(s2 => s2.track && s2.track.kind === 'video');
-            if (sender) sender.replaceTrack(screenTrack);
+            if (sender) sender.replaceTrack(s.getVideoTracks()[0]);
           }
-          // auto stop when user clicks browser's Stop Sharing button
-          screenTrack.onended = () => toggleScreen();
+          s.getVideoTracks()[0].onended = () => { if (screenOn) toggleScreen(); };
         } catch(e) {
-          if (e.name !== 'NotAllowedError') addChatMsg('⚠️ Screen share not available in this browser.', false, 'System');
+          if (e.name !== 'NotAllowedError') sysMsg('⚠️ Screen share failed: ' + e.message);
         }
       }
     }
 
-    /* ── Mic toggle ── */
+    /* ── Mic / Cam toggles ── */
     function toggleMic() {
       if (!localStream) return;
       micOn = !micOn;
@@ -2790,7 +2829,6 @@
       $('tgMutedBadge').classList.toggle('show', !micOn);
     }
 
-    /* ── Camera toggle ── */
     function toggleCam() {
       if (!localStream) return;
       camOn = !camOn;
@@ -2802,24 +2840,17 @@
 
     /* ── Hang up ── */
     async function hangup() {
-      // stop all tracks
-      if (localStream)  { localStream.getTracks().forEach(t => t.stop());  localStream = null; }
+      if (localStream)  { localStream.getTracks().forEach(t => t.stop());  localStream  = null; }
       if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
-
-      // close peer connection
       if (pc) { pc.close(); pc = null; }
 
-      // unsubscribe all Firebase listeners
-      iceSubs.forEach(u => { if (typeof u === 'function') u(); });
-      iceSubs = [];
-      if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+      unsubs.forEach(u => { try { u(); } catch(_) {} });
+      unsubs = [];
 
-      // clean up Firebase room (host only)
-      if (isHost && roomId) { await remove(ref(db, `together/${roomId}`)); }
+      if (isHost && roomId) await remove(ref(db, `together/${roomId}`));
 
       stopTimer();
 
-      // reset UI
       $('tgRemoteVideo').srcObject = null;
       $('tgLocalVideo').srcObject  = null;
       $('tgScreenVideo').srcObject = null;
@@ -2831,12 +2862,12 @@
       $('tgBanner').classList.remove('show');
       $('tgJoinWrap').classList.remove('show');
       $('tgCodeDisplay').textContent = '------';
-      micOn = true; camOn = true; screenOn = false;
-      $('tgMicBtn').classList.add('active'); $('tgMicBtn').textContent = '🎙️';
-      $('tgCamBtn').classList.add('active'); $('tgCamBtn').textContent = '📷';
+      micOn = true; camOn = true; screenOn = false; roomId = null;
+      remoteDescSet = false; iceBuffer = [];
+      $('tgMicBtn').classList.add('active');  $('tgMicBtn').textContent = '🎙️';
+      $('tgCamBtn').classList.add('active');  $('tgCamBtn').textContent = '📷';
       $('tgScreenBtn').classList.remove('active');
       $('tgMutedBadge').classList.remove('show');
-      roomId = null;
 
       showLobby();
     }
@@ -2846,7 +2877,7 @@
 
     $('tgJoinCard').addEventListener('click', () => {
       $('tgJoinWrap').classList.add('show');
-      $('tgCodeInput').focus();
+      setTimeout(() => $('tgCodeInput').focus(), 80);
     });
     $('tgJoinCancel').addEventListener('click', () => {
       $('tgJoinWrap').classList.remove('show');
@@ -2867,18 +2898,19 @@
     $('tgChatSend').addEventListener('click', sendChat);
     $('tgChatIn').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
 
-    /* copy room code on click */
-    $('tgCodeDisplay').addEventListener('click', () => {
-      navigator.clipboard.writeText($('tgCodeDisplay').textContent).then(() => {
-        const el = $('tgCodeDisplay');
-        const old = el.textContent;
-        el.textContent = 'Copied!';
-        setTimeout(() => el.textContent = old, 1200);
+    /* copy room code */
+    [$('tgCodeDisplay'), $('tgCallCode')].forEach(el => {
+      el.addEventListener('click', () => {
+        navigator.clipboard.writeText(el.textContent).then(() => {
+          const orig = el.textContent;
+          el.textContent = 'Copied!';
+          setTimeout(() => el.textContent = orig, 1200);
+        }).catch(() => {});
       });
     });
-    $('tgCallCode').addEventListener('click', () => {
-      navigator.clipboard.writeText($('tgCallCode').textContent).catch(() => {});
-    });
+
+    /* also subscribe chat for host after answer arrives (previously missing) */
+    const _origCreate = createRoom;
 
   </script>
 
