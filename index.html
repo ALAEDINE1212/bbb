@@ -10,6 +10,23 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=DM+Sans:opsz,wght@9..40,300..600&family=Caveat:wght@400;500&display=swap"
     rel="stylesheet">
+
+  <!-- ── PWA: install as an app on Android, iOS, Windows, Mac ── -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color"          content="#ee6b86">
+  <meta name="background-color"     content="#110a18">
+  <meta name="application-name"     content="Our Little Universe">
+  <meta name="apple-mobile-web-app-title"   content="Universe 💘">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection"     content="telephone=no">
+  <link rel="icon"             type="image/png" sizes="32x32"   href="icon-32.png">
+  <link rel="icon"             type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon"             type="image/png" sizes="512x512" href="icon-512.png">
+  <link rel="apple-touch-icon" sizes="180x180"  href="icon-180.png">
+  <link rel="apple-touch-icon" sizes="192x192"  href="icon-192.png">
+  <link rel="shortcut icon"    href="icon-192.png">
   <style>
     :root {
       /* ── SURFACES ── */
@@ -1235,7 +1252,58 @@
     }
 
 
-    /* ══════════════════════════════════════════
+    /* ── PWA INSTALL BUTTON ── */
+    .pwa-install {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 9000;
+      display: none;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 16px 10px 12px;
+      background: linear-gradient(135deg, var(--rose) 0%, #d65888 100%);
+      color: #fff;
+      border: none;
+      border-radius: var(--r-pill);
+      font-family: var(--fb);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(238,107,134,.45), 0 1px 2px rgba(0,0,0,.4);
+      animation: pwaPulse 2.4s ease-in-out infinite;
+      transition: transform .2s var(--ease), box-shadow .2s var(--ease)
+    }
+    .pwa-install.show { display: inline-flex }
+    .pwa-install:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(238,107,134,.6) }
+    .pwa-install .pwa-ico {
+      width: 26px; height: 26px;
+      border-radius: 7px;
+      background: rgba(255,255,255,.18);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem
+    }
+    .pwa-install .pwa-x {
+      margin-left: 4px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: rgba(0,0,0,.2);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .65rem;
+      cursor: pointer;
+      opacity: .7;
+      transition: opacity .15s
+    }
+    .pwa-install .pwa-x:hover { opacity: 1 }
+    @keyframes pwaPulse {
+      0%, 100% { box-shadow: 0 8px 24px rgba(238,107,134,.45), 0 1px 2px rgba(0,0,0,.4) }
+      50%       { box-shadow: 0 8px 24px rgba(238,107,134,.45), 0 0 0 8px rgba(238,107,134,.0), 0 0 0 14px rgba(238,107,134,.10) }
+    }
+    @media(max-width: 768px) {
+      .pwa-install { bottom: calc(var(--nh) + 14px); right: 12px; padding: 9px 14px 9px 10px; font-size: .76rem }
+    }
+
+        /* ══════════════════════════════════════════
        TOGETHER SECTION — WebRTC Video & Screen Share
        ══════════════════════════════════════════ */
 
@@ -2205,6 +2273,14 @@
     </section>
 
   </div><!-- /mw -->
+
+
+  <!-- PWA install prompt button (auto-shown by JS when installable) -->
+  <button class="pwa-install" id="pwaInstallBtn" type="button" aria-label="Install app">
+    <span class="pwa-ico">💘</span>
+    <span>Install Our Little <em style="font-style:italic;font-family:var(--fd)">Universe</em></span>
+    <span class="pwa-x" id="pwaInstallX" role="button" aria-label="Dismiss">✕</span>
+  </button>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module">
@@ -3369,6 +3445,110 @@
     /* also subscribe chat for host after answer arrives (previously missing) */
     const _origCreate = createRoom;
 
+  </script>
+
+  <!-- ── PWA: register service worker + handle install prompt ── -->
+  <script>
+    /* Register the service worker — only when running on HTTPS or localhost.
+       Service workers don't run from file:// so this is a no-op there. */
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { scope: './' })
+          .then(reg => {
+            console.log('[PWA] Service worker registered. Scope:', reg.scope);
+            // listen for updates
+            reg.addEventListener('updatefound', () => {
+              const w = reg.installing;
+              if (!w) return;
+              w.addEventListener('statechange', () => {
+                if (w.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('[PWA] New version cached. Reload to update.');
+                }
+              });
+            });
+          })
+          .catch(err => console.warn('[PWA] SW registration failed:', err));
+      });
+    }
+
+    /* Install prompt handling — Chrome / Edge / Android */
+    let _deferredInstallPrompt = null;
+    const _installBtn = document.getElementById('pwaInstallBtn');
+    const _installX   = document.getElementById('pwaInstallX');
+    const _DISMISS_KEY = 'pwa-install-dismissed-at';
+    const _DISMISS_DAYS = 7;
+
+    function _wasRecentlyDismissed() {
+      const t = parseInt(localStorage.getItem(_DISMISS_KEY) || '0', 10);
+      if (!t) return false;
+      return (Date.now() - t) < (_DISMISS_DAYS * 86400000);
+    }
+
+    function _isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches ||
+             window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+             window.navigator.standalone === true;
+    }
+
+    /* If already installed (running as app) — never show the button */
+    if (_isStandalone()) {
+      _installBtn.style.display = 'none';
+    }
+
+    /* Chrome / Edge / Android: capture the prompt for later */
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      _deferredInstallPrompt = e;
+      if (!_wasRecentlyDismissed() && !_isStandalone()) {
+        _installBtn.classList.add('show');
+      }
+    });
+
+    _installBtn.addEventListener('click', async (ev) => {
+      // Ignore clicks on the dismiss X
+      if (ev.target.id === 'pwaInstallX') return;
+
+      if (_deferredInstallPrompt) {
+        _installBtn.classList.remove('show');
+        _deferredInstallPrompt.prompt();
+        const { outcome } = await _deferredInstallPrompt.userChoice;
+        console.log('[PWA] Install', outcome);
+        if (outcome === 'dismissed') localStorage.setItem(_DISMISS_KEY, String(Date.now()));
+        _deferredInstallPrompt = null;
+      } else {
+        // iOS Safari has no programmatic install prompt — show instructions
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+          alert("To install on iPhone/iPad:\n\n1. Tap the Share button (square + arrow)\n2. Scroll down and tap 'Add to Home Screen'\n3. Tap 'Add' in the top-right");
+        } else {
+          alert("To install:\n\n• Chrome / Edge: click the install icon (⊕) in the address bar\n• Or open the browser menu → 'Install Our Little Universe'");
+        }
+      }
+    });
+
+    _installX.addEventListener('click', e => {
+      e.stopPropagation();
+      _installBtn.classList.remove('show');
+      localStorage.setItem(_DISMISS_KEY, String(Date.now()));
+    });
+
+    /* Already installed in this session — log it */
+    window.addEventListener('appinstalled', () => {
+      console.log('[PWA] App installed 💘');
+      _installBtn.classList.remove('show');
+      _deferredInstallPrompt = null;
+    });
+
+    /* iOS fallback — Safari has no beforeinstallprompt. If we're on iOS Safari
+       in a browser tab (not standalone), show the button after a short delay
+       so the user can tap it for instructions. */
+    (function iosFallback() {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+      if (isIOS && isSafari && !_isStandalone() && !_wasRecentlyDismissed()) {
+        setTimeout(() => _installBtn.classList.add('show'), 4000);
+      }
+    })();
   </script>
 
 </body>
