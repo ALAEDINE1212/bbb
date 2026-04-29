@@ -1582,6 +1582,144 @@
       .tg-lobby { min-height: 60vh }
     }
 
+
+    /* ── THEATER / FULLSCREEN MODE ── */
+    body.tg-fs-mode { overflow: hidden }
+
+    body.tg-fs-mode .sidebar,
+    body.tg-fs-mode .bnav,
+    body.tg-fs-mode .aurora,
+    body.tg-fs-mode .ph,
+    body.tg-fs-mode .tg-chat-wrap,
+    body.tg-fs-mode .tg-call > div:first-child { display: none !important }
+
+    body.tg-fs-mode .mw  { margin: 0 !important; padding: 0 !important }
+    body.tg-fs-mode .sec { padding: 0 !important }
+    body.tg-fs-mode .tg-call { gap: 0 !important }
+
+    /* fullscreen stage */
+    body.tg-fs-mode .tg-vgrid {
+      display: block !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: #000 !important;
+      grid-template-columns: none !important;
+      z-index: 600
+    }
+
+    /* hide all videos by default in fs */
+    body.tg-fs-mode .tg-vbox { display: none !important }
+
+    /* the box flagged as MAIN fills the whole screen */
+    body.tg-fs-mode .tg-vbox.fs-main {
+      display: block !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      aspect-ratio: auto !important;
+      border: none !important;
+      border-radius: 0 !important;
+      z-index: 600
+    }
+    body.tg-fs-mode .tg-vbox.fs-main video { object-fit: contain; background: #000 }
+    body.tg-fs-mode .tg-vbox.fs-main .tg-vbox-label { display: none }
+
+    /* PIPs — draggable floating windows */
+    body.tg-fs-mode .tg-vbox.fs-pip {
+      display: block !important;
+      position: fixed !important;
+      width: 220px !important;
+      height: 124px !important;
+      border-radius: 14px !important;
+      border: 2px solid rgba(238,107,134,.55) !important;
+      box-shadow: 0 12px 40px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.05) !important;
+      cursor: grab !important;
+      z-index: 700;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      transition: border-color .2s ease, transform .25s var(--ease-pop), box-shadow .2s ease;
+      aspect-ratio: auto !important
+    }
+    body.tg-fs-mode .tg-vbox.fs-pip video { object-fit: cover; width: 100%; height: 100% }
+    body.tg-fs-mode .tg-vbox.fs-pip:hover { border-color: var(--rose) !important }
+    body.tg-fs-mode .tg-vbox.fs-pip.dragging {
+      cursor: grabbing !important;
+      transition: none !important;
+      box-shadow: 0 18px 50px rgba(0,0,0,.85), 0 0 30px rgba(238,107,134,.4) !important
+    }
+    body.tg-fs-mode .tg-vbox.fs-pip .tg-vbox-label {
+      bottom: 6px; left: 6px;
+      font-size: .58rem;
+      padding: 2px 6px;
+      pointer-events: none
+    }
+    body.tg-fs-mode .tg-vbox.fs-pip .tg-avatar { background: var(--s2) }
+    body.tg-fs-mode .tg-vbox.fs-pip .tg-avatar .av-emoji { font-size: 1.8rem }
+    body.tg-fs-mode .tg-vbox.fs-pip .tg-avatar .av-name { font-size: .75rem }
+
+    /* floating controls dock */
+    body.tg-fs-mode .tg-controls {
+      position: fixed !important;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 800;
+      background: rgba(15, 8, 22, .75);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      padding: 8px 14px;
+      border-radius: 100px;
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 12px 40px rgba(0,0,0,.5);
+      gap: 6px !important;
+      opacity: 1;
+      transition: opacity .35s ease
+    }
+    body.tg-fs-mode .tg-controls .tg-btn-label { display: none }
+    body.tg-fs-mode .tg-controls .tg-btn-wrap { padding-bottom: 0 }
+    body.tg-fs-mode .tg-controls .tg-btn { width: 42px; height: 42px; font-size: 1rem; background: rgba(255,255,255,.06); border-color: transparent }
+    body.tg-fs-mode .tg-controls .tg-btn:hover { background: rgba(255,255,255,.12) }
+    body.tg-fs-mode .tg-controls .tg-btn.active { background: var(--rose-g); border-color: var(--bhi); color: var(--rose) }
+    body.tg-fs-mode .tg-controls .tg-btn.danger,
+    body.tg-fs-mode .tg-controls .tg-btn.hangup { background: rgba(232,96,96,.25); border-color: rgba(232,96,96,.4); color: #fff }
+    body.tg-fs-mode .tg-controls .tg-btn.hangup { width: 48px; height: 48px }
+
+    /* auto-hide controls after idle */
+    body.tg-fs-mode.tg-fs-idle .tg-controls,
+    body.tg-fs-mode.tg-fs-idle .tg-fs-status { opacity: 0; pointer-events: none }
+    body.tg-fs-mode.tg-fs-idle { cursor: none }
+    body.tg-fs-mode.tg-fs-idle .tg-vbox.fs-pip { opacity: .8 }
+
+    /* tiny status badge at top */
+    .tg-fs-status {
+      display: none;
+      position: fixed;
+      top: 16px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 800;
+      background: rgba(15, 8, 22, .75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 6px 14px 6px 12px;
+      border-radius: 100px;
+      border: 1px solid rgba(255,255,255,.08);
+      align-items: center;
+      gap: 8px;
+      font-size: .72rem;
+      color: var(--tx2);
+      transition: opacity .35s ease
+    }
+    body.tg-fs-mode .tg-fs-status { display: flex }
+    .tg-fs-status .tg-dot { width: 7px; height: 7px }
+
+    @media(max-width: 600px) {
+      body.tg-fs-mode .tg-vbox.fs-pip { width: 110px !important; height: 62px !important }
+    }
+
     /* ── RESPONSIVE ── */
     @media(max-width:900px) {
       .g3 { grid-template-columns: 1fr 1fr }
@@ -2036,6 +2174,10 @@
             <span class="tg-btn-label">Share</span>
           </div>
           <div class="tg-btn-wrap">
+            <button class="tg-btn" id="tgFsBtn" title="Theater / fullscreen mode">🎬</button>
+            <span class="tg-btn-label">Theater</span>
+          </div>
+          <div class="tg-btn-wrap">
             <button class="tg-btn hangup" id="tgHangupBtn" title="End call">📵</button>
             <span class="tg-btn-label">End</span>
           </div>
@@ -2050,6 +2192,14 @@
             <button id="tgChatSend">➤</button>
           </div>
         </div>
+      </div>
+
+      <!-- floating status pill (visible only in theater mode) -->
+      <div class="tg-fs-status" id="tgFsStatus">
+        <div class="tg-dot" id="tgFsDot"></div>
+        <span id="tgFsStatusTxt">Connected 💕</span>
+        <span style="color:var(--tx4);margin:0 6px">·</span>
+        <span id="tgFsTimer" style="font-family:var(--fh);color:var(--tx3)">00:00</span>
       </div>
 
     </section>
@@ -2566,6 +2716,9 @@
     function setStatus(txt, state) {
       $('tgDot').className   = 'tg-dot ' + (state || '');
       $('tgStatusTxt').textContent = txt;
+      const fd = $('tgFsDot'), ft = $('tgFsStatusTxt');
+      if (fd) fd.className = 'tg-dot ' + (state || '');
+      if (ft) ft.textContent = txt;
     }
 
     function showLobby() {
@@ -2592,9 +2745,10 @@
       clearInterval(timerInt);
       timerInt = setInterval(() => {
         timerSec++;
-        $('tgTimer').textContent =
-          String(Math.floor(timerSec / 60)).padStart(2,'0') + ':' +
-          String(timerSec % 60).padStart(2,'0');
+        const t = String(Math.floor(timerSec / 60)).padStart(2,'0') + ':' +
+                  String(timerSec % 60).padStart(2,'0');
+        $('tgTimer').textContent   = t;
+        const ft = $('tgFsTimer'); if (ft) ft.textContent = t;
       }, 1000);
     }
 
@@ -2850,6 +3004,7 @@
           if (sender) sender.replaceTrack(camTrack);
         }
         screenOn = false;
+        if (fsMode) updateFsLayout();
       } else {
         try {
           const s = await navigator.mediaDevices.getDisplayMedia({
@@ -2866,6 +3021,7 @@
             if (sender) sender.replaceTrack(s.getVideoTracks()[0]);
           }
           s.getVideoTracks()[0].onended = () => { if (screenOn) toggleScreen(); };
+          if (fsMode) updateFsLayout();
         } catch(e) {
           if (e.name !== 'NotAllowedError') sysMsg('⚠️ Screen share failed: ' + e.message);
         }
@@ -2917,6 +3073,7 @@
       $('tgCodeDisplay').textContent = '------';
       micOn = true; camOn = true; screenOn = false; roomId = null;
       remoteDescSet = false; iceBuffer = [];
+      if (fsMode) toggleFullscreen();
       $('tgMicBtn').classList.add('active');  $('tgMicBtn').textContent = '🎙️';
       $('tgCamBtn').classList.add('active');  $('tgCamBtn').textContent = '📷';
       $('tgScreenBtn').classList.remove('active');
@@ -2924,6 +3081,177 @@
 
       showLobby();
     }
+
+
+    /* ══════════════════════════════════════════
+       THEATER / FULLSCREEN MODE
+       ══════════════════════════════════════════ */
+    let fsMode = false;
+    let fsIdleTimer = null;
+
+    function pipPositionsInit() {
+      // arrange PIPs in stacked corner positions on entry
+      const pips = document.querySelectorAll('.tg-vbox.fs-pip');
+      pips.forEach((el, i) => {
+        const w = el.offsetWidth || 220;
+        const h = el.offsetHeight || 124;
+        const margin = 20;
+        // bottom-right, then stack upward
+        const x = window.innerWidth  - w - margin;
+        const y = window.innerHeight - h - margin - i * (h + 12) - 80; // 80px above the controls
+        el.style.left = x + 'px';
+        el.style.top  = y + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+      });
+    }
+
+    function clampPip(el) {
+      const r = el.getBoundingClientRect();
+      const margin = 8;
+      let x = r.left, y = r.top;
+      if (x < margin) x = margin;
+      if (y < margin) y = margin;
+      if (x + r.width  > window.innerWidth  - margin) x = window.innerWidth  - r.width  - margin;
+      if (y + r.height > window.innerHeight - margin) y = window.innerHeight - r.height - margin;
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+    }
+
+    function snapToCorner(el) {
+      const r = el.getBoundingClientRect();
+      const margin = 20;
+      const cx = r.left + r.width / 2;
+      const cy = r.top  + r.height / 2;
+      const isLeft = cx < window.innerWidth  / 2;
+      const isTop  = cy < window.innerHeight / 2;
+      const newX = isLeft ? margin : window.innerWidth  - r.width  - margin;
+      const newY = isTop  ? margin : window.innerHeight - r.height - margin - (isTop ? 0 : 70);
+      el.style.left = newX + 'px';
+      el.style.top  = newY + 'px';
+    }
+
+    function makePipDraggable(el) {
+      if (el._dragBound) return;
+      el._dragBound = true;
+      let startX = 0, startY = 0, origX = 0, origY = 0, dragging = false, moved = false;
+
+      const onDown = e => {
+        if (!fsMode) return;
+        // ignore clicks on labels/avatars children that aren't drag-able
+        dragging = true; moved = false;
+        el.classList.add('dragging');
+        const r = el.getBoundingClientRect();
+        const p = e.touches ? e.touches[0] : e;
+        startX = p.clientX; startY = p.clientY;
+        origX = r.left; origY = r.top;
+        // make sure top/left are pixel values
+        el.style.left = origX + 'px';
+        el.style.top  = origY + 'px';
+        el.style.right = 'auto'; el.style.bottom = 'auto';
+        e.preventDefault();
+      };
+      const onMove = e => {
+        if (!dragging) return;
+        const p = e.touches ? e.touches[0] : e;
+        const dx = p.clientX - startX, dy = p.clientY - startY;
+        if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+        el.style.left = (origX + dx) + 'px';
+        el.style.top  = (origY + dy) + 'px';
+        clampPip(el);
+        e.preventDefault();
+      };
+      const onUp = () => {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove('dragging');
+        // soft snap to nearest corner
+        if (moved) snapToCorner(el);
+        else el.click();
+      };
+
+      el.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup',   onUp);
+      window.addEventListener('pointercancel', onUp);
+    }
+
+    /* Decide which video is the main/big one and which are PIPs */
+    function updateFsLayout() {
+      if (!fsMode) return;
+      const screen = $('tgScreenBox');
+      const remote = $('tgRemoteBox');
+      const local  = $('tgLocalBox');
+
+      [screen, remote, local].forEach(el => el.classList.remove('fs-main','fs-pip'));
+
+      // priority: my screen share → remote video (which carries her screen if she's sharing) → local
+      if (screenOn && screenStream) {
+        screen.classList.add('fs-main');
+        remote.classList.add('fs-pip');
+        local.classList.add('fs-pip');
+      } else {
+        remote.classList.add('fs-main');
+        local.classList.add('fs-pip');
+      }
+
+      // make sure pip elements are draggable + positioned
+      document.querySelectorAll('.tg-vbox.fs-pip').forEach(makePipDraggable);
+      requestAnimationFrame(pipPositionsInit);
+    }
+
+    function clearFsLayout() {
+      [$('tgScreenBox'), $('tgRemoteBox'), $('tgLocalBox')].forEach(el => {
+        el.classList.remove('fs-main','fs-pip','dragging');
+        el.style.left = ''; el.style.top = ''; el.style.right = ''; el.style.bottom = '';
+        el.style.width = ''; el.style.height = '';
+      });
+    }
+
+    /* idle auto-hide of controls */
+    function bumpIdle() {
+      document.body.classList.remove('tg-fs-idle');
+      clearTimeout(fsIdleTimer);
+      if (fsMode) fsIdleTimer = setTimeout(() => document.body.classList.add('tg-fs-idle'), 3000);
+    }
+
+    function toggleFullscreen() {
+      fsMode = !fsMode;
+      document.body.classList.toggle('tg-fs-mode', fsMode);
+      $('tgFsBtn').classList.toggle('active', fsMode);
+
+      if (fsMode) {
+        updateFsLayout();
+        bumpIdle();
+        document.addEventListener('mousemove', bumpIdle);
+        document.addEventListener('keydown', escFs);
+        // try real browser fullscreen too — silently fail if denied
+        const elr = document.documentElement;
+        (elr.requestFullscreen || elr.webkitRequestFullscreen)?.call(elr).catch(() => {});
+      } else {
+        document.body.classList.remove('tg-fs-idle');
+        clearTimeout(fsIdleTimer);
+        document.removeEventListener('mousemove', bumpIdle);
+        document.removeEventListener('keydown', escFs);
+        clearFsLayout();
+        if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      }
+    }
+
+    function escFs(e) {
+      if (e.key === 'Escape' && fsMode) toggleFullscreen();
+    }
+
+    /* exit fs gracefully if user hits browser-native ESC */
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && fsMode) toggleFullscreen();
+    });
+
+    /* re-clamp PIPs on viewport resize */
+    window.addEventListener('resize', () => {
+      if (!fsMode) return;
+      document.querySelectorAll('.tg-vbox.fs-pip').forEach(clampPip);
+    });
 
     /* ── Event bindings ── */
     $('tgCreateBtn').addEventListener('click', createRoom);
@@ -2946,6 +3274,7 @@
     $('tgMicBtn').addEventListener('click', toggleMic);
     $('tgCamBtn').addEventListener('click', toggleCam);
     $('tgScreenBtn').addEventListener('click', toggleScreen);
+    $('tgFsBtn').addEventListener('click', toggleFullscreen);
     $('tgHangupBtn').addEventListener('click', hangup);
 
     $('tgChatSend').addEventListener('click', sendChat);
