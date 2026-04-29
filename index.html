@@ -1234,6 +1234,354 @@
       margin-left: auto
     }
 
+
+    /* ══════════════════════════════════════════
+       TOGETHER SECTION — WebRTC Video & Screen Share
+       ══════════════════════════════════════════ */
+
+    /* ── LOBBY ── */
+    .tg-lobby {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 70vh;
+      gap: 0
+    }
+
+    .tg-logo {
+      font-family: var(--fd);
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 350;
+      font-variation-settings: "opsz" 72;
+      color: var(--tx);
+      text-align: center;
+      margin-bottom: 6px;
+      line-height: 1.2
+    }
+    .tg-logo em { color: var(--rose); font-style: italic }
+    .tg-logo span { font-family: var(--fh); font-size: .9em; color: var(--tx3) }
+
+    .tg-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      width: 100%;
+      max-width: 560px;
+      margin: 28px 0 0
+    }
+
+    .tg-card {
+      background: rgba(29, 20, 40, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      padding: 26px 22px;
+      text-align: center;
+      transition: border-color var(--t) var(--ease), transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+      cursor: pointer
+    }
+    .tg-card:hover {
+      border-color: var(--bhi);
+      transform: translateY(-3px);
+      box-shadow: var(--sh-card-hover)
+    }
+    .tg-card-ico { font-size: 2.2rem; margin-bottom: 10px }
+    .tg-card h3 {
+      font-family: var(--fd);
+      font-size: 1.05rem;
+      font-weight: 400;
+      font-variation-settings: "opsz" 24;
+      color: var(--tx);
+      margin-bottom: 5px
+    }
+    .tg-card p { font-size: .78rem; color: var(--tx3); line-height: 1.55 }
+
+    .tg-join-wrap {
+      width: 100%;
+      max-width: 360px;
+      margin-top: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeIn .22s var(--ease)
+    }
+    .tg-join-wrap.show { display: flex }
+    .tg-join-wrap input { font-size: 1.1rem; text-align: center; letter-spacing: .18em; font-weight: 600 }
+
+    .tg-note {
+      font-size: .76rem;
+      color: var(--tx4);
+      text-align: center;
+      margin-top: 8px;
+      line-height: 1.6;
+      max-width: 400px
+    }
+    .tg-note a { color: var(--rose); text-decoration: none }
+
+    /* ── ROOM CODE ── */
+    .tg-room-banner {
+      display: none;
+      width: 100%;
+      max-width: 560px;
+      background: var(--violet-g);
+      border: 1px solid rgba(180,137,216,.22);
+      border-radius: var(--r);
+      padding: 12px 18px;
+      margin-bottom: 14px;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+    .tg-room-banner.show { display: flex }
+    .tg-room-banner span { font-size: .76rem; color: var(--tx3) }
+    .tg-room-code {
+      font-family: var(--fb);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: .22em;
+      color: var(--violet);
+      cursor: pointer;
+      padding: 3px 10px;
+      background: rgba(180,137,216,.1);
+      border-radius: 7px;
+      transition: background var(--t-fast) var(--ease)
+    }
+    .tg-room-code:hover { background: rgba(180,137,216,.22) }
+    .tg-copy-tip { font-size: .68rem; color: var(--tx4) }
+
+    /* ── CALL STAGE ── */
+    .tg-call {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeIn .28s var(--ease)
+    }
+    .tg-call.show { display: flex }
+
+    /* status bar */
+    .tg-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r-pill);
+      width: fit-content
+    }
+    .tg-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--tx4);
+      transition: background .3s
+    }
+    .tg-dot.connecting { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation: blinkDot 1s infinite }
+    .tg-dot.connected  { background: #6bcf7f; box-shadow: 0 0 8px rgba(107,207,127,.6) }
+    .tg-dot.error      { background: var(--danger) }
+    .tg-status-txt { font-size: .78rem; color: var(--tx3); font-weight: 500 }
+    .tg-timer { font-family: var(--fh); font-size: .95rem; color: var(--tx3); margin-left: auto }
+
+    /* video grid */
+    .tg-vgrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      min-height: 320px
+    }
+    .tg-vgrid.screenshare-active { grid-template-columns: 3fr 1fr }
+
+    .tg-vbox {
+      position: relative;
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      transition: border-color var(--t) var(--ease)
+    }
+    .tg-vbox.active { border-color: var(--bhi) }
+
+    .tg-vbox video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      background: var(--s1)
+    }
+
+    .tg-vbox-label {
+      position: absolute;
+      bottom: 10px; left: 12px;
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.75);
+      background: rgba(0,0,0,.5);
+      backdrop-filter: blur(8px);
+      padding: 3px 9px;
+      border-radius: var(--r-pill)
+    }
+
+    .tg-vbox-muted {
+      position: absolute;
+      top: 10px; right: 10px;
+      font-size: .75rem;
+      background: rgba(232,96,96,.85);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: var(--r-pill);
+      display: none
+    }
+    .tg-vbox-muted.show { display: block }
+
+    /* avatar placeholder when cam off */
+    .tg-avatar {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--s2)
+    }
+    .tg-avatar.show { display: flex }
+    .tg-avatar .av-emoji { font-size: 3rem }
+    .tg-avatar .av-name { font-family: var(--fd); font-size: 1rem; color: var(--tx3) }
+
+    /* controls bar */
+    .tg-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .tg-btn {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--s2);
+      color: var(--tx2);
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--t) var(--ease);
+      position: relative
+    }
+    .tg-btn:hover { background: var(--s3); border-color: var(--bhi); color: var(--tx) }
+    .tg-btn.active { background: var(--rose-g); border-color: var(--bhi); color: var(--rose) }
+    .tg-btn.danger { background: rgba(232,96,96,.15); border-color: rgba(232,96,96,.35); color: var(--danger) }
+    .tg-btn.danger:hover { background: var(--danger); color: #fff }
+    .tg-btn-label {
+      position: absolute;
+      bottom: -18px;
+      font-size: .6rem;
+      white-space: nowrap;
+      color: var(--tx4);
+      letter-spacing: .04em;
+      pointer-events: none
+    }
+    .tg-btn-wrap { display: flex; flex-direction: column; align-items: center; padding-bottom: 14px }
+
+    /* hangup bigger */
+    .tg-btn.hangup { width: 56px; height: 56px; font-size: 1.3rem; background: rgba(232,96,96,.2); border-color: rgba(232,96,96,.4); color: var(--danger) }
+    .tg-btn.hangup:hover { background: var(--danger); color: #fff; transform: scale(1.06) }
+
+    /* ── CHAT ── */
+    .tg-chat-wrap {
+      background: rgba(29,20,40,.8);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 220px
+    }
+    .tg-chat-head {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--tx3)
+    }
+    .tg-msgs {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px
+    }
+    .tg-msgs::-webkit-scrollbar { width: 3px }
+    .tg-msgs::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 4px }
+    .tg-msg {
+      max-width: 80%;
+      padding: 7px 11px;
+      border-radius: 14px 14px 14px 4px;
+      font-size: .82rem;
+      line-height: 1.45;
+      background: var(--s2);
+      color: var(--tx2);
+      border: 1px solid var(--border);
+      align-self: flex-start
+    }
+    .tg-msg.mine {
+      align-self: flex-end;
+      background: var(--rose-g);
+      border-color: var(--bhi-soft);
+      color: var(--tx);
+      border-radius: 14px 14px 4px 14px
+    }
+    .tg-msg-name { font-size: .65rem; font-weight: 700; letter-spacing: .06em; color: var(--tx3); margin-bottom: 2px; text-transform: uppercase }
+    .tg-chat-input {
+      display: flex;
+      gap: 8px;
+      padding: 8px 10px;
+      border-top: 1px solid var(--border)
+    }
+    .tg-chat-input input {
+      flex: 1;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-pill);
+      padding: 7px 14px;
+      font-family: var(--fb);
+      font-size: .84rem;
+      color: var(--tx);
+      outline: none;
+      transition: border-color var(--t) var(--ease)
+    }
+    .tg-chat-input input:focus { border-color: var(--rose) }
+    .tg-chat-input button {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: none;
+      background: var(--rose);
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background var(--t) var(--ease)
+    }
+    .tg-chat-input button:hover { background: var(--rose-lo) }
+
+    /* responsive together */
+    @media(max-width: 768px) {
+      .tg-cards { grid-template-columns: 1fr; max-width: 340px }
+      .tg-vgrid { grid-template-columns: 1fr !important }
+      .tg-vbox { aspect-ratio: 16/9 }
+      .tg-lobby { min-height: 60vh }
+    }
+
     /* ── RESPONSIVE ── */
     @media(max-width:900px) {
       .g3 { grid-template-columns: 1fr 1fr }
@@ -1318,6 +1666,7 @@
       <button class="ni" data-s="places"><span class="ico">📍</span>Places</button>
       <button class="ni" data-s="mood"><span class="ico">🎨</span>Mood</button>
       <button class="ni" data-s="photos"><span class="ico">📸</span>Photos</button>
+      <button class="ni" data-s="together"><span class="ico">📺</span>Together</button>
     </div>
     <div class="sb-foot">
       <p class="sb-foot-text">always &amp; forever <span>♡</span></p>
@@ -1335,6 +1684,7 @@
       <button class="bi" data-s="places"><span class="bico">📍</span>Places</button>
       <button class="bi" data-s="mood"><span class="bico">🎨</span>Mood</button>
       <button class="bi" data-s="photos"><span class="bico">📸</span>Photos</button>
+      <button class="bi" data-s="together"><span class="bico">📺</span>Watch</button>
     </div>
   </nav>
 
@@ -1587,6 +1937,123 @@
         </div>
       </div>
     </section>
+
+    <!-- TOGETHER -->
+    <section class="sec" id="s-together">
+
+      <!-- LOBBY (shown when not in a call) -->
+      <div class="tg-lobby" id="tgLobby">
+        <div class="tg-logo">Watch <em>together</em><br><span>screen share · video call · chat</span></div>
+
+        <!-- room code banner — shown after creating a room -->
+        <div class="tg-room-banner" id="tgBanner">
+          <span>Your room code:</span>
+          <div class="tg-room-code" id="tgCodeDisplay" title="Click to copy">------</div>
+          <span class="tg-copy-tip">tap to copy · share with Ines</span>
+        </div>
+
+        <div class="tg-cards">
+          <div class="tg-card" id="tgCreateBtn">
+            <div class="tg-card-ico">📡</div>
+            <h3>Start a Room</h3>
+            <p>Create a private room and share the code with each other</p>
+          </div>
+          <div class="tg-card" id="tgJoinCard">
+            <div class="tg-card-ico">🔗</div>
+            <h3>Join a Room</h3>
+            <p>Enter the 6-digit code to join an existing call</p>
+          </div>
+        </div>
+
+        <!-- join input — slides in when "Join" is tapped -->
+        <div class="tg-join-wrap" id="tgJoinWrap">
+          <input type="text" id="tgCodeInput" maxlength="6" placeholder="XXXXXX" autocomplete="off" spellcheck="false" />
+          <button class="btn bp" id="tgJoinBtn">Join room 💞</button>
+          <button class="btn bg" id="tgJoinCancel" style="font-size:.8rem">Cancel</button>
+        </div>
+
+        <p class="tg-note">
+          Uses WebRTC peer-to-peer — no server stores your video.<br>
+          For screen sharing open the site in <strong>Chrome or Edge</strong> for best results.
+        </p>
+      </div>
+
+      <!-- CALL UI (shown during a call) -->
+      <div class="tg-call" id="tgCall">
+        <!-- status bar -->
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div class="tg-status">
+            <div class="tg-dot" id="tgDot"></div>
+            <span class="tg-status-txt" id="tgStatusTxt">Connecting…</span>
+          </div>
+          <div class="tg-status">
+            <span style="font-size:.75rem;color:var(--tx3)">Room:</span>
+            <span class="tg-room-code" id="tgCallCode" style="font-size:.9rem;padding:1px 7px">------</span>
+          </div>
+          <span class="tg-timer" id="tgTimer">00:00</span>
+        </div>
+
+        <!-- videos -->
+        <div class="tg-vgrid" id="tgVgrid">
+          <!-- remote -->
+          <div class="tg-vbox active" id="tgRemoteBox">
+            <video id="tgRemoteVideo" autoplay playsinline></video>
+            <div class="tg-avatar show" id="tgRemoteAvatar">
+              <div class="av-emoji">🌹</div>
+              <div class="av-name">Waiting for Ines…</div>
+            </div>
+            <div class="tg-vbox-label">Ines</div>
+          </div>
+          <!-- local -->
+          <div class="tg-vbox" id="tgLocalBox">
+            <video id="tgLocalVideo" autoplay playsinline muted></video>
+            <div class="tg-avatar show" id="tgLocalAvatar">
+              <div class="av-emoji">💘</div>
+              <div class="av-name">You</div>
+            </div>
+            <div class="tg-vbox-label">You</div>
+            <div class="tg-vbox-muted" id="tgMutedBadge">🔇 Muted</div>
+          </div>
+          <!-- screen share (hidden until active) -->
+          <div class="tg-vbox" id="tgScreenBox" style="display:none">
+            <video id="tgScreenVideo" autoplay playsinline muted></video>
+            <div class="tg-vbox-label">Your Screen</div>
+          </div>
+        </div>
+
+        <!-- controls -->
+        <div class="tg-controls">
+          <div class="tg-btn-wrap">
+            <button class="tg-btn active" id="tgMicBtn" title="Mute/Unmute">🎙️</button>
+            <span class="tg-btn-label">Mic</span>
+          </div>
+          <div class="tg-btn-wrap">
+            <button class="tg-btn active" id="tgCamBtn" title="Camera on/off">📷</button>
+            <span class="tg-btn-label">Camera</span>
+          </div>
+          <div class="tg-btn-wrap">
+            <button class="tg-btn" id="tgScreenBtn" title="Share screen">🖥️</button>
+            <span class="tg-btn-label">Share</span>
+          </div>
+          <div class="tg-btn-wrap">
+            <button class="tg-btn hangup" id="tgHangupBtn" title="End call">📵</button>
+            <span class="tg-btn-label">End</span>
+          </div>
+        </div>
+
+        <!-- chat -->
+        <div class="tg-chat-wrap">
+          <div class="tg-chat-head">💬 Chat during call</div>
+          <div class="tg-msgs" id="tgMsgs"></div>
+          <div class="tg-chat-input">
+            <input type="text" id="tgChatIn" placeholder="Say something sweet… 💕" maxlength="280" autocomplete="off" />
+            <button id="tgChatSend">➤</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
   </div><!-- /mw -->
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1652,6 +2119,7 @@
       places: { t: '📍 Places', s: 'Places we visited together' },
       mood: { t: '🎨 Mood', s: 'Colour diary of our days' },
       photos: { t: '📸 Photos', s: 'Our shared gallery' },
+      together: { t: '📺 Together', s: 'Watch · Call · Share screen' },
     };
     function nav(n) {
       document.querySelectorAll('.sec').forEach(s => s.classList.remove('active'));
@@ -2028,6 +2496,392 @@
     buildCal(cY, cM);
     updMStats();
   </script>
+
+  <!-- TOGETHER: WebRTC module (separate from existing Firebase module) -->
+  <script type="module">
+    import { getDatabase, ref, set, push, onValue, remove, onDisconnect }
+      from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+
+    const db  = getDatabase(getApp());
+    const $   = id => document.getElementById(id);
+
+    /* ── ICE / STUN config ── */
+    const ICE_CFG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.relay.metered.ca:80'  },
+        {
+          urls: [
+            'turn:standard.relay.metered.ca:80',
+            'turn:standard.relay.metered.ca:80?transport=tcp',
+            'turn:standard.relay.metered.ca:443',
+            'turns:standard.relay.metered.ca:443?transport=tcp'
+          ],
+          username:   'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ]
+    };
+
+    /* ── State ── */
+    let pc        = null;   // RTCPeerConnection
+    let localStream  = null;
+    let screenStream = null;
+    let roomId    = null;
+    let isHost    = false;
+    let micOn     = true;
+    let camOn     = true;
+    let screenOn  = false;
+    let timerInt  = null;
+    let timerSec  = 0;
+    let chatUnsubscribe = null;
+    let iceSubs   = [];
+    let myName    = 'You';  // could be 'Alaedine'
+
+    /* ── Helpers ── */
+    function genCode() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function setStatus(txt, state) {
+      const dot = $('tgDot'), stxt = $('tgStatusTxt');
+      dot.className = 'tg-dot ' + (state || '');
+      stxt.textContent = txt;
+    }
+
+    function showLobby() {
+      $('tgLobby').style.display = 'flex';
+      $('tgCall').classList.remove('show');
+    }
+
+    function showCall() {
+      $('tgLobby').style.display = 'none';
+      $('tgCall').classList.add('show');
+    }
+
+    function startTimer() {
+      timerSec = 0;
+      clearInterval(timerInt);
+      timerInt = setInterval(() => {
+        timerSec++;
+        const m = String(Math.floor(timerSec / 60)).padStart(2, '0');
+        const s = String(timerSec % 60).padStart(2, '0');
+        $('tgTimer').textContent = m + ':' + s;
+      }, 1000);
+    }
+
+    function stopTimer() { clearInterval(timerInt); $('tgTimer').textContent = '00:00'; }
+
+    function addChatMsg(text, mine, name) {
+      const msgs = $('tgMsgs');
+      const d = document.createElement('div');
+      d.className = 'tg-msg' + (mine ? ' mine' : '');
+      d.innerHTML = (name && !mine ? `<div class="tg-msg-name">${name}</div>` : '') + text;
+      msgs.appendChild(d);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    /* ── Attach local stream to video element ── */
+    function attachLocal(stream) {
+      const vid = $('tgLocalVideo');
+      vid.srcObject = stream;
+      $('tgLocalAvatar').classList.remove('show');
+    }
+
+    /* ── Build RTCPeerConnection ── */
+    function buildPC() {
+      if (pc) { pc.close(); pc = null; }
+      pc = new RTCPeerConnection(ICE_CFG);
+
+      /* remote track */
+      pc.ontrack = e => {
+        const vid = $('tgRemoteVideo');
+        if (vid.srcObject !== e.streams[0]) {
+          vid.srcObject = e.streams[0];
+          $('tgRemoteAvatar').classList.remove('show');
+          setStatus('Connected 💕', 'connected');
+          startTimer();
+        }
+      };
+
+      /* ICE candidates */
+      const myRole   = isHost ? 'host' : 'guest';
+      const theirRole = isHost ? 'guest' : 'host';
+
+      pc.onicecandidate = e => {
+        if (e.candidate) {
+          push(ref(db, `together/${roomId}/ice/${myRole}`), e.candidate.toJSON());
+        }
+      };
+
+      /* listen for their candidates */
+      const iceSub = onValue(ref(db, `together/${roomId}/ice/${theirRole}`), snap => {
+        if (!snap.val() || !pc) return;
+        Object.values(snap.val()).forEach(c => {
+          pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
+        });
+      });
+      iceSubs.push(iceSub);
+
+      /* connection state */
+      pc.onconnectionstatechange = () => {
+        const s = pc.connectionState;
+        if (s === 'connected')     setStatus('Connected 💕', 'connected');
+        if (s === 'connecting')    setStatus('Connecting…', 'connecting');
+        if (s === 'disconnected')  setStatus('Disconnected', 'error');
+        if (s === 'failed')        setStatus('Connection failed ❌', 'error');
+      };
+
+      return pc;
+    }
+
+    /* ── Get user media ── */
+    async function getMedia() {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { width:1920, height:1080 }, audio: true });
+        localStream = s;
+        attachLocal(s);
+        return s;
+      } catch(err) {
+        // try without HD if browser restricts
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localStream = s;
+          attachLocal(s);
+          return s;
+        } catch(e) {
+          addChatMsg('⚠️ Camera/mic not available — call will be audio-only or screen-only.', false, 'System');
+          return null;
+        }
+      }
+    }
+
+    /* ── HOST: create offer ── */
+    async function createRoom() {
+      roomId = genCode();
+      isHost = true;
+      $('tgCodeDisplay').textContent = roomId;
+      $('tgCallCode').textContent    = roomId;
+      $('tgBanner').classList.add('show');
+
+      setStatus('Waiting for Ines…', 'connecting');
+      showCall();
+
+      const stream = await getMedia();
+      buildPC();
+
+      if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await set(ref(db, `together/${roomId}/offer`), { sdp: offer.sdp, type: offer.type });
+
+      /* wait for answer */
+      const answerSub = onValue(ref(db, `together/${roomId}/answer`), async snap => {
+        if (!snap.val() || pc.remoteDescription) return;
+        await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
+        setStatus('Call started 💕', 'connected');
+      });
+      iceSubs.push(answerSub);
+
+      /* cleanup on disconnect */
+      onDisconnect(ref(db, `together/${roomId}`)).remove();
+
+      subscribeChat();
+    }
+
+    /* ── GUEST: join with code ── */
+    async function joinRoom(code) {
+      roomId = code.trim().toUpperCase();
+      isHost = false;
+      $('tgCallCode').textContent = roomId;
+
+      setStatus('Connecting…', 'connecting');
+      showCall();
+
+      const stream = await getMedia();
+      buildPC();
+
+      if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
+
+      /* get offer */
+      const offerSnap = await new Promise(res => {
+        const u = onValue(ref(db, `together/${roomId}/offer`), s => { if (s.val()) { u(); res(s); } });
+      });
+
+      await pc.setRemoteDescription(new RTCSessionDescription(offerSnap.val()));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await set(ref(db, `together/${roomId}/answer`), { sdp: answer.sdp, type: answer.type });
+
+      subscribeChat();
+    }
+
+    /* ── Chat via Firebase ── */
+    function subscribeChat() {
+      if (chatUnsubscribe) chatUnsubscribe();
+      chatUnsubscribe = onValue(ref(db, `together/${roomId}/chat`), snap => {
+        if (!snap.val()) return;
+        $('tgMsgs').innerHTML = '';
+        Object.values(snap.val()).sort((a,b) => a.ts - b.ts).forEach(m => {
+          addChatMsg(m.text, m.from === myName, m.from);
+        });
+      });
+    }
+
+    async function sendChat() {
+      const inp = $('tgChatIn'), txt = inp.value.trim();
+      if (!txt || !roomId) return;
+      inp.value = '';
+      await push(ref(db, `together/${roomId}/chat`), { text: txt, from: myName, ts: Date.now() });
+    }
+
+    /* ── Screen share ── */
+    async function toggleScreen() {
+      if (screenOn) {
+        // stop screen share
+        if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+        $('tgScreenBox').style.display = 'none';
+        $('tgVgrid').classList.remove('screenshare-active');
+        $('tgScreenBtn').classList.remove('active');
+        // restore camera track if available
+        if (localStream && pc) {
+          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+          const camTrack = localStream.getVideoTracks()[0];
+          if (sender && camTrack) sender.replaceTrack(camTrack);
+        }
+        screenOn = false;
+      } else {
+        try {
+          const s = await navigator.mediaDevices.getDisplayMedia({
+            video: { width: 1920, height: 1080, frameRate: 30 },
+            audio: true
+          });
+          screenStream = s;
+          const screenTrack = s.getVideoTracks()[0];
+          // show local preview
+          $('tgScreenVideo').srcObject = s;
+          $('tgScreenBox').style.display = 'block';
+          $('tgVgrid').classList.add('screenshare-active');
+          $('tgScreenBtn').classList.add('active');
+          screenOn = true;
+          // replace video track in the peer connection
+          if (pc) {
+            const sender = pc.getSenders().find(s2 => s2.track && s2.track.kind === 'video');
+            if (sender) sender.replaceTrack(screenTrack);
+          }
+          // auto stop when user clicks browser's Stop Sharing button
+          screenTrack.onended = () => toggleScreen();
+        } catch(e) {
+          if (e.name !== 'NotAllowedError') addChatMsg('⚠️ Screen share not available in this browser.', false, 'System');
+        }
+      }
+    }
+
+    /* ── Mic toggle ── */
+    function toggleMic() {
+      if (!localStream) return;
+      micOn = !micOn;
+      localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+      $('tgMicBtn').classList.toggle('active', micOn);
+      $('tgMicBtn').textContent = micOn ? '🎙️' : '🔇';
+      $('tgMutedBadge').classList.toggle('show', !micOn);
+    }
+
+    /* ── Camera toggle ── */
+    function toggleCam() {
+      if (!localStream) return;
+      camOn = !camOn;
+      localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+      $('tgCamBtn').classList.toggle('active', camOn);
+      $('tgCamBtn').textContent = camOn ? '📷' : '📵';
+      $('tgLocalAvatar').classList.toggle('show', !camOn);
+    }
+
+    /* ── Hang up ── */
+    async function hangup() {
+      // stop all tracks
+      if (localStream)  { localStream.getTracks().forEach(t => t.stop());  localStream = null; }
+      if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+
+      // close peer connection
+      if (pc) { pc.close(); pc = null; }
+
+      // unsubscribe all Firebase listeners
+      iceSubs.forEach(u => { if (typeof u === 'function') u(); });
+      iceSubs = [];
+      if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+
+      // clean up Firebase room (host only)
+      if (isHost && roomId) { await remove(ref(db, `together/${roomId}`)); }
+
+      stopTimer();
+
+      // reset UI
+      $('tgRemoteVideo').srcObject = null;
+      $('tgLocalVideo').srcObject  = null;
+      $('tgScreenVideo').srcObject = null;
+      $('tgRemoteAvatar').classList.add('show');
+      $('tgLocalAvatar').classList.add('show');
+      $('tgScreenBox').style.display = 'none';
+      $('tgVgrid').classList.remove('screenshare-active');
+      $('tgMsgs').innerHTML = '';
+      $('tgBanner').classList.remove('show');
+      $('tgJoinWrap').classList.remove('show');
+      $('tgCodeDisplay').textContent = '------';
+      micOn = true; camOn = true; screenOn = false;
+      $('tgMicBtn').classList.add('active'); $('tgMicBtn').textContent = '🎙️';
+      $('tgCamBtn').classList.add('active'); $('tgCamBtn').textContent = '📷';
+      $('tgScreenBtn').classList.remove('active');
+      $('tgMutedBadge').classList.remove('show');
+      roomId = null;
+
+      showLobby();
+    }
+
+    /* ── Event bindings ── */
+    $('tgCreateBtn').addEventListener('click', createRoom);
+
+    $('tgJoinCard').addEventListener('click', () => {
+      $('tgJoinWrap').classList.add('show');
+      $('tgCodeInput').focus();
+    });
+    $('tgJoinCancel').addEventListener('click', () => {
+      $('tgJoinWrap').classList.remove('show');
+      $('tgCodeInput').value = '';
+    });
+    $('tgJoinBtn').addEventListener('click', () => {
+      const code = $('tgCodeInput').value.trim();
+      if (code.length < 4) return;
+      joinRoom(code);
+    });
+    $('tgCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('tgJoinBtn').click(); });
+
+    $('tgMicBtn').addEventListener('click', toggleMic);
+    $('tgCamBtn').addEventListener('click', toggleCam);
+    $('tgScreenBtn').addEventListener('click', toggleScreen);
+    $('tgHangupBtn').addEventListener('click', hangup);
+
+    $('tgChatSend').addEventListener('click', sendChat);
+    $('tgChatIn').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+    /* copy room code on click */
+    $('tgCodeDisplay').addEventListener('click', () => {
+      navigator.clipboard.writeText($('tgCodeDisplay').textContent).then(() => {
+        const el = $('tgCodeDisplay');
+        const old = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => el.textContent = old, 1200);
+      });
+    });
+    $('tgCallCode').addEventListener('click', () => {
+      navigator.clipboard.writeText($('tgCallCode').textContent).catch(() => {});
+    });
+
+  </script>
+
 </body>
 
 </html>
