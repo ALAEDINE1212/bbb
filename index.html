@@ -2697,6 +2697,8 @@
     let pc           = null;
     let localStream  = null;
     let screenStream = null;
+    let audioCtx     = null;      // Web Audio context for mixing mic + screen audio
+    let mixedDest    = null;      // destination node — its track is sent to peer
     let roomId       = null;
     let isHost       = false;
     let micOn        = true;
@@ -2991,24 +2993,49 @@
       await push(ref(db, `together/${roomId}/chat`), { text: txt, from: myLabel(), ts: Date.now() });
     }
 
-    /* ── Screen share ── */
+    /* ── Screen share with audio mixing ── */
     async function toggleScreen() {
       if (screenOn) {
+        // ── STOP sharing ──
         if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
         $('tgScreenBox').style.display = 'none';
         $('tgVgrid').classList.remove('screenshare-active');
         $('tgScreenBtn').classList.remove('active');
+
+        // restore camera video
         const camTrack = localStream && localStream.getVideoTracks()[0];
         if (pc && camTrack) {
-          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) sender.replaceTrack(camTrack);
+          const vSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (vSender) vSender.replaceTrack(camTrack);
         }
+
+        // restore original mic audio (un-mix)
+        if (audioCtx) {
+          const origMicTrack = localStream && localStream.getAudioTracks()[0];
+          if (pc && origMicTrack) {
+            const aSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+            if (aSender) aSender.replaceTrack(origMicTrack);
+          }
+          try { await audioCtx.close(); } catch(_) {}
+          audioCtx  = null;
+          mixedDest = null;
+        }
+
         screenOn = false;
         if (fsMode) updateFsLayout();
+        sysMsg('🛑 Screen share stopped');
       } else {
+        // ── START sharing ──
         try {
           const s = await navigator.mediaDevices.getDisplayMedia({
-            video: { width:1920, height:1080, frameRate:30 }, audio: true
+            video: { width: 1920, height: 1080, frameRate: 30 },
+            // request raw audio so movie/music doesn't get auto-processed by mic noise filters
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl:  false,
+              sampleRate:       48000
+            }
           });
           screenStream = s;
           $('tgScreenVideo').srcObject = s;
@@ -3016,11 +3043,58 @@
           $('tgVgrid').classList.add('screenshare-active');
           $('tgScreenBtn').classList.add('active');
           screenOn = true;
+
           if (pc) {
-            const sender = pc.getSenders().find(s2 => s2.track && s2.track.kind === 'video');
-            if (sender) sender.replaceTrack(s.getVideoTracks()[0]);
+            // 1) replace the video track
+            const vSender = pc.getSenders().find(s2 => s2.track && s2.track.kind === 'video');
+            if (vSender) vSender.replaceTrack(s.getVideoTracks()[0]);
+
+            // 2) if screen audio was captured, mix it with the mic and send the mix
+            const screenAudioTracks = s.getAudioTracks();
+            if (screenAudioTracks.length > 0) {
+              try {
+                audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+                mixedDest = audioCtx.createMediaStreamDestination();
+
+                // mic → mix (so you can still talk over the movie)
+                if (localStream && localStream.getAudioTracks().length) {
+                  const micSrc = audioCtx.createMediaStreamSource(
+                    new MediaStream([localStream.getAudioTracks()[0]])
+                  );
+                  // mic gain — slightly higher so voice cuts through the media
+                  const micGain = audioCtx.createGain();
+                  micGain.gain.value = 1.0;
+                  micSrc.connect(micGain).connect(mixedDest);
+                }
+
+                // screen audio (movie / music / browser tab) → mix
+                const scrSrc = audioCtx.createMediaStreamSource(
+                  new MediaStream([screenAudioTracks[0]])
+                );
+                const scrGain = audioCtx.createGain();
+                scrGain.gain.value = 0.85;  // slightly lower so voice is intelligible
+                scrSrc.connect(scrGain).connect(mixedDest);
+
+                // replace the audio sender's track with the mixed track
+                const aSender = pc.getSenders().find(s2 => s2.track && s2.track.kind === 'audio');
+                if (aSender && mixedDest.stream.getAudioTracks()[0]) {
+                  await aSender.replaceTrack(mixedDest.stream.getAudioTracks()[0]);
+                }
+
+                sysMsg('🔊 Sharing screen + system audio (Ines hears both you and the movie)');
+              } catch(mixErr) {
+                console.error('[Together] audio mix failed', mixErr);
+                sysMsg('⚠️ Audio mix failed — Ines will hear your mic only. Try Chrome.');
+              }
+            } else {
+              // user didn't tick the share-audio checkbox or the source doesn't support it
+              sysMsg('🔇 No screen audio captured. Next time tick "Share tab audio" in the dialog (Chrome / Edge supports tab + system audio best — Firefox cannot share system audio at all).');
+            }
           }
+
+          // when screen share ends (user clicks Stop in the browser bar), clean up
           s.getVideoTracks()[0].onended = () => { if (screenOn) toggleScreen(); };
+
           if (fsMode) updateFsLayout();
         } catch(e) {
           if (e.name !== 'NotAllowedError') sysMsg('⚠️ Screen share failed: ' + e.message);
@@ -3051,6 +3125,7 @@
     async function hangup() {
       if (localStream)  { localStream.getTracks().forEach(t => t.stop());  localStream  = null; }
       if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
+      if (audioCtx)     { try { audioCtx.close(); } catch(_) {} audioCtx = null; mixedDest = null; }
       if (pc) { pc.close(); pc = null; }
 
       unsubs.forEach(u => { try { u(); } catch(_) {} });
