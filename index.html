@@ -2075,7 +2075,7 @@
       measurementId: "G-42VFML631W"
     };
     const app = initializeApp(cfg);
-    getAnalytics(app);
+    try { getAnalytics(app); } catch(_) { /* silently ignore — Analytics often fails in dev / file:// / privacy modes and is non-essential */ }
     const db = getDatabase(app);
     const storage = getStorage(app, "gs://my-baby-35bb9.firebasestorage.app");
 
@@ -2506,23 +2506,42 @@
     const db = getDatabase(getApp());
     const $  = id => document.getElementById(id);
 
-    /* ── ICE / STUN + public TURN ── */
-    const ICE_CFG = {
+    /* ── ICE / STUN + TURN (Metered.ca free tier) ── */
+    const TURN_USERNAME   = "dea38a13a615ae74c9577772";
+    const TURN_CREDENTIAL = "RqkkLYU2kqH621S+";
+    const TURN_API_KEY    = "904d8c40307b75a3af02df0c198ff31f95be";
+    const TURN_API_HOST   = "instacuteeooddddfhhh.metered.live";
+
+    /* Static config used immediately — fresh creds are fetched lazily once per session */
+    const STATIC_ICE_CFG = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        {
-          urls: [
-            'turn:standard.relay.metered.ca:80',
-            'turn:standard.relay.metered.ca:80?transport=tcp',
-            'turn:standard.relay.metered.ca:443',
-            'turns:standard.relay.metered.ca:443?transport=tcp'
-          ],
-          username:   'openrelayproject',
-          credential: 'openrelayproject'
-        }
-      ]
+        { urls: 'stun:stun.relay.metered.ca:80'  },
+        { urls: 'stun:stun.l.google.com:19302'   },
+        { urls: 'stun:stun.cloudflare.com:3478'  },
+        { urls: 'turn:global.relay.metered.ca:80',                 username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        { urls: 'turn:global.relay.metered.ca:80?transport=tcp',   username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        { urls: 'turn:global.relay.metered.ca:443',                username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL }
+      ],
+      iceCandidatePoolSize: 10
     };
+
+    let ICE_CFG = STATIC_ICE_CFG;
+
+    /* Try to fetch fresh, time-limited TURN creds from Metered's REST API.
+       If it works, swap them in — if it fails, the static creds above keep working. */
+    (async () => {
+      try {
+        const r = await fetch(`https://${TURN_API_HOST}/api/v1/turn/credentials?apiKey=${TURN_API_KEY}`);
+        if (r.ok) {
+          const list = await r.json();
+          if (Array.isArray(list) && list.length) {
+            ICE_CFG = { iceServers: list, iceCandidatePoolSize: 10 };
+            console.log('[Together] Loaded fresh TURN credentials from Metered API');
+          }
+        }
+      } catch(_) { /* fall back to static creds silently */ }
+    })();
 
     /* ── State ── */
     let pc           = null;
@@ -2657,29 +2676,63 @@
       });
       unsubs.push(iceSub);
 
-      /* when remote stream arrives */
+      /* when remote stream arrives — only attach video, don't claim "joined" yet */
       pc.ontrack = e => {
         const vid = $('tgRemoteVideo');
         if (vid.srcObject !== e.streams[0]) {
           vid.srcObject = e.streams[0];
-          $('tgRemoteAvatar').classList.remove('show');
-          setStatus('Connected 💕', 'connected');
-          startTimer();
-          sysMsg('✨ ' + remoteLabel() + ' joined the call');
         }
       };
 
-      /* connection state changes */
+      /* track candidate types collected for diagnostics */
+      let gotHost = false, gotSrflx = false, gotRelay = false;
+      pc.addEventListener('icecandidate', e => {
+        if (!e.candidate) return;
+        const t = e.candidate.candidate || '';
+        if (t.includes(' typ host'))  gotHost  = true;
+        if (t.includes(' typ srflx')) gotSrflx = true;
+        if (t.includes(' typ relay')) gotRelay = true;
+      });
+
+      let connectedOnce = false;
+      let iceRestartTries = 0;
+
       pc.onconnectionstatechange = () => {
         const s = pc.connectionState;
-        if (s === 'connected')    { setStatus('Connected 💕', 'connected'); }
-        if (s === 'connecting')   { setStatus('Connecting…', 'connecting'); }
-        if (s === 'disconnected') { setStatus(remoteLabel() + ' disconnected', 'error'); }
-        if (s === 'failed')       { setStatus('Connection failed ❌', 'error'); sysMsg('⚠️ Connection failed — try hanging up and re-joining'); }
+        console.log('[Together] connection state:', s);
+        if (s === 'connected') {
+          if (!connectedOnce) {
+            connectedOnce = true;
+            $('tgRemoteAvatar').classList.remove('show');
+            setStatus('Connected 💕', 'connected');
+            startTimer();
+            sysMsg('✨ ' + remoteLabel() + ' joined the call');
+          } else {
+            setStatus('Connected 💕', 'connected');
+          }
+        }
+        if (s === 'connecting')   setStatus('Connecting…', 'connecting');
+        if (s === 'disconnected') setStatus(remoteLabel() + ' reconnecting…', 'connecting');
+        if (s === 'failed') {
+          if (iceRestartTries < 2) {
+            iceRestartTries++;
+            setStatus('Reconnecting (' + iceRestartTries + ')…', 'connecting');
+            sysMsg('🔄 Trying to reconnect…');
+            try { pc.restartIce(); } catch(_) {}
+          } else {
+            setStatus('Connection failed ❌', 'error');
+            sysMsg('⚠️ Connection failed. ICE candidates collected — host: ' + gotHost + ', srflx: ' + gotSrflx + ', relay: ' + gotRelay + '.');
+            if (!gotRelay) {
+              sysMsg('💡 No TURN relay candidates — your network needs a TURN server. See code comments at top of Together script for setup (free, 2 min).');
+            } else {
+              sysMsg('💡 TURN was reachable but couldn\'t connect. Try a different network on one side, or refresh both pages.');
+            }
+          }
+        }
       };
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'failed') pc.restartIce();
+        console.log('[Together] ICE state:', pc.iceConnectionState);
       };
 
       return pc;
