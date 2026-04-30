@@ -1303,7 +1303,170 @@
       .pwa-install { bottom: calc(var(--nh) + 14px); right: 12px; padding: 9px 14px 9px 10px; font-size: .76rem }
     }
 
-        /* ══════════════════════════════════════════
+    
+    /* ── MOVIE AUTOCOMPLETE ── */
+    .mv-search-wrap { position: relative }
+
+    .mv-suggestions {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--s3);
+      border: 1px solid var(--bhi);
+      border-radius: var(--r);
+      z-index: 300;
+      max-height: 280px;
+      overflow-y: auto;
+      box-shadow: var(--sh-popup);
+      display: none
+    }
+    .mv-suggestions.open { display: block }
+    .mv-suggestions::-webkit-scrollbar { width: 3px }
+    .mv-suggestions::-webkit-scrollbar-thumb { background: var(--s4); border-radius: 4px }
+
+    .mv-sug-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 8px 11px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--t-fast) var(--ease)
+    }
+    .mv-sug-item:last-child { border-bottom: none }
+    .mv-sug-item:hover,
+    .mv-sug-item.focused { background: var(--s4) }
+
+    .mv-sug-poster {
+      width: 32px; height: 48px;
+      border-radius: 5px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--s2)
+    }
+    .mv-sug-poster-ph {
+      width: 32px; height: 48px;
+      border-radius: 5px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .9rem
+    }
+    .mv-sug-info { min-width: 0 }
+    .mv-sug-title {
+      font-size: .84rem;
+      font-weight: 600;
+      color: var(--tx);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+    .mv-sug-meta { font-size: .72rem; color: var(--tx3); margin-top: 2px }
+    .mv-sug-rating { color: var(--gold); font-size: .7rem }
+
+    .mv-loading {
+      padding: 12px 14px;
+      font-size: .82rem;
+      color: var(--tx3);
+      text-align: center
+    }
+
+    /* selected movie preview inside the form */
+    .mv-selected-preview {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      background: var(--s2);
+      border: 1px solid var(--bhi-soft);
+      border-radius: var(--r);
+      margin-top: 8px
+    }
+    .mv-selected-preview.show { display: flex }
+    .mv-selected-preview img {
+      width: 38px; height: 56px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0
+    }
+    .mv-selected-preview-info { flex: 1; min-width: 0 }
+    .mv-selected-preview-title {
+      font-family: var(--fd);
+      font-size: .95rem;
+      font-weight: 400;
+      color: var(--tx);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+    .mv-selected-preview-meta { font-size: .72rem; color: var(--tx3); margin-top: 2px }
+    .mv-clear {
+      background: none; border: none;
+      color: var(--tx4); cursor: pointer;
+      font-size: .8rem; padding: 2px 6px;
+      border-radius: 4px;
+      transition: color var(--t-fast) var(--ease)
+    }
+    .mv-clear:hover { color: var(--danger) }
+
+    /* ── MOVIE LIST CARD WITH POSTER ── */
+    .mv-li {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 10px 12px 10px 10px;
+      transition: border-color var(--t) var(--ease)
+    }
+    .mv-li:hover { border-color: var(--bhi) }
+
+    .mv-li-poster {
+      width: 46px; height: 68px;
+      border-radius: 7px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--s3)
+    }
+    .mv-li-poster-ph {
+      width: 46px; height: 68px;
+      border-radius: 7px;
+      background: var(--s3);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem
+    }
+    .mv-li-body { flex: 1; min-width: 0 }
+    .mv-li-title {
+      font-weight: 600;
+      color: var(--tx);
+      font-size: .87rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+    .mv-li-meta { font-size: .74rem; color: var(--tx3); margin-top: 2px }
+    .mv-li-overview {
+      font-size: .76rem;
+      color: var(--tx3);
+      margin-top: 4px;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden
+    }
+    .mv-li-note { font-size: .82rem; color: var(--tx2); margin-top: 5px; line-height: 1.5 }
+    .mv-li-rating { color: var(--gold); font-size: .72rem; margin-top: 3px }
+
+    /* ══════════════════════════════════════════
        TOGETHER SECTION — WebRTC Video & Screen Share
        ══════════════════════════════════════════ */
 
@@ -1983,7 +2146,23 @@
       <div class="g2">
         <div class="panel">
           <div class="ptitle"><span class="picon">🎞️</span>Add a Movie</div>
-          <div class="fg"><label>Movie title</label><input id="mvT" type="text" placeholder="e.g. Your Name" /></div>
+          <!-- search with autocomplete -->
+          <div class="fg">
+            <label>Movie or series title</label>
+            <div class="mv-search-wrap">
+              <input id="mvT" type="text" placeholder="Start typing… e.g. Your Name" autocomplete="off" />
+              <div class="mv-suggestions" id="mvSugg"></div>
+            </div>
+            <!-- selected movie preview -->
+            <div class="mv-selected-preview" id="mvPreview">
+              <img id="mvPreviewImg" src="" alt="" />
+              <div class="mv-selected-preview-info">
+                <div class="mv-selected-preview-title" id="mvPreviewTitle"></div>
+                <div class="mv-selected-preview-meta" id="mvPreviewMeta"></div>
+              </div>
+              <button class="mv-clear" id="mvClear" title="Clear selection">✕</button>
+            </div>
+          </div>
           <div class="frow">
             <div class="fg"><label>Date watched</label><input id="mvD" type="date" /></div>
             <div class="fg"><label>Where</label><input id="mvP" type="text" placeholder="Cinema / sofa..." /></div>
@@ -2475,22 +2654,205 @@
 
     /* ── MOVIES ── */
     const mvRef = dr(db, 'movies');
+    /* ═══════════════════════════════════════════════════════
+       TMDB MOVIE SEARCH
+       Get your FREE key at: https://www.themoviedb.org/settings/api
+       (Sign up free → Settings → API → "Create" → Developer key)
+       Then replace the string below.
+       ═══════════════════════════════════════════════════════ */
+    const TMDB_KEY = '46979da9955cfe0fc747297d57f30ab5'; // ← paste your key
+    const TMDB_IMG = 'https://image.tmdb.org/t/p/w185';
+    const TMDB_IMG_LG = 'https://image.tmdb.org/t/p/w342';
+
+    /* selected TMDB movie metadata — stored alongside the user's entry */
+    let mvSelected = null;  // { id, title, poster, overview, year, rating, type }
+
+    /* debounce helper */
+    function debounce(fn, ms) {
+      let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+    }
+
+    async function tmdbSearch(query) {
+      if (TMDB_KEY === 'YOUR_TMDB_API_KEY_HERE') return [];
+      try {
+        // search both movies and TV shows in one call via /multi
+        const r = await fetch(
+          `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`
+        );
+        if (!r.ok) return [];
+        const data = await r.json();
+        // filter to movies + tv only, exclude people
+        return (data.results || [])
+          .filter(x => x.media_type === 'movie' || x.media_type === 'tv')
+          .slice(0, 7);
+      } catch(_) { return []; }
+    }
+
+    function renderSuggestions(results) {
+      const box = $('mvSugg');
+      if (!results.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
+      box.innerHTML = results.map((r, i) => {
+        const title  = r.title || r.name || 'Unknown';
+        const year   = (r.release_date || r.first_air_date || '').slice(0, 4);
+        const type   = r.media_type === 'tv' ? 'Series' : 'Movie';
+        const rating = r.vote_average ? r.vote_average.toFixed(1) : '';
+        const poster = r.poster_path
+          ? `<img class="mv-sug-poster" src="${TMDB_IMG}${r.poster_path}" alt="" loading="lazy">`
+          : `<div class="mv-sug-poster-ph">🎬</div>`;
+        return `<div class="mv-sug-item" data-idx="${i}" tabindex="-1">
+          ${poster}
+          <div class="mv-sug-info">
+            <div class="mv-sug-title">${title}</div>
+            <div class="mv-sug-meta">${year ? year + ' · ' : ''}${type}${rating ? ' · <span class="mv-sug-rating">★ ' + rating + '</span>' : ''}</div>
+          </div>
+        </div>`;
+      }).join('');
+      box._results = results;
+      box.classList.add('open');
+    }
+
+    function selectMovie(r) {
+      const title = r.title || r.name || '';
+      const year  = (r.release_date || r.first_air_date || '').slice(0, 4);
+      const type  = r.media_type === 'tv' ? 'Series' : 'Movie';
+      const poster = r.poster_path ? TMDB_IMG_LG + r.poster_path : '';
+      const rating = r.vote_average ? r.vote_average.toFixed(1) : '';
+
+      mvSelected = {
+        id:       r.id,
+        title,
+        poster,
+        overview: (r.overview || '').slice(0, 220),
+        year,
+        rating,
+        type
+      };
+
+      // fill in the input
+      $('mvT').value = title;
+
+      // show preview
+      const prev = $('mvPreview');
+      $('mvPreviewTitle').textContent = title;
+      $('mvPreviewMeta').textContent  = [year, type, rating ? '★ ' + rating : ''].filter(Boolean).join(' · ');
+      if (poster) { $('mvPreviewImg').src = poster; $('mvPreviewImg').style.display = 'block'; }
+      else         { $('mvPreviewImg').style.display = 'none'; }
+      prev.classList.add('show');
+
+      // close suggestions
+      $('mvSugg').classList.remove('open');
+      $('mvSugg').innerHTML = '';
+    }
+
+    function clearMovieSelection() {
+      mvSelected = null;
+      $('mvT').value = '';
+      $('mvPreview').classList.remove('show');
+      $('mvPreviewImg').src = '';
+      $('mvT').focus();
+    }
+
+    /* input → debounced search */
+    const doSearch = debounce(async (q) => {
+      const box = $('mvSugg');
+      if (q.length < 2) { box.classList.remove('open'); return; }
+      box.innerHTML = '<div class="mv-loading">Searching… 🎬</div>';
+      box.classList.add('open');
+      const results = await tmdbSearch(q);
+      renderSuggestions(results);
+    }, 320);
+
+    $('mvT').addEventListener('input', e => {
+      if (mvSelected) clearMovieSelection();
+      doSearch(e.target.value.trim());
+    });
+
+    /* keyboard nav inside suggestions */
+    $('mvT').addEventListener('keydown', e => {
+      const box = $('mvSugg');
+      if (!box.classList.contains('open')) return;
+      const items = box.querySelectorAll('.mv-sug-item');
+      const focused = box.querySelector('.mv-sug-item.focused');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = focused ? focused.nextElementSibling : items[0];
+        if (next) { focused?.classList.remove('focused'); next.classList.add('focused'); next.scrollIntoView({ block: 'nearest' }); }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = focused?.previousElementSibling;
+        if (prev) { focused.classList.remove('focused'); prev.classList.add('focused'); prev.scrollIntoView({ block: 'nearest' }); }
+      } else if (e.key === 'Enter' && focused) {
+        e.preventDefault();
+        const idx = parseInt(focused.dataset.idx);
+        if (!isNaN(idx) && box._results) selectMovie(box._results[idx]);
+      } else if (e.key === 'Escape') {
+        box.classList.remove('open');
+      }
+    });
+
+    /* click on suggestion */
+    $('mvSugg').addEventListener('mousedown', e => {
+      const item = e.target.closest('.mv-sug-item');
+      if (!item || !$('mvSugg')._results) return;
+      e.preventDefault(); // prevent input blur before click
+      selectMovie($('mvSugg')._results[parseInt(item.dataset.idx)]);
+    });
+
+    /* clear button */
+    $('mvClear').addEventListener('click', clearMovieSelection);
+
+    /* close suggestions on outside click */
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.mv-search-wrap')) $('mvSugg').classList.remove('open');
+    });
+
+    /* save movie */
     $('mvSub').addEventListener('click', async () => {
       const t = $('mvT').value.trim(), d = $('mvD').value, p = $('mvP').value.trim(), n = $('mvN').value.trim();
       if (!t || !d) return;
-      await push(mvRef, { title: t, date: d, place: p, note: n });
-      $('mvT').value = ''; $('mvN').value = ''; $('mvP').value = ''; $('mvD').value = iso(); hearts();
+      const entry = { title: t, date: d, place: p, note: n };
+      // attach TMDB metadata if a result was selected
+      if (mvSelected) {
+        entry.poster   = mvSelected.poster;
+        entry.overview = mvSelected.overview;
+        entry.year     = mvSelected.year;
+        entry.rating   = mvSelected.rating;
+        entry.type     = mvSelected.type;
+        entry.tmdbId   = mvSelected.id;
+      }
+      await push(mvRef, entry);
+      $('mvT').value = ''; $('mvN').value = ''; $('mvP').value = ''; $('mvD').value = iso();
+      clearMovieSelection();
+      hearts();
     });
+
+    /* render the list */
     function rMovies(snap) {
       const data = snap.val(); const el = $('movieList');
       if (!data) { el.innerHTML = '<div class="es">No movies yet 🍿</div>'; updMv(0); dash(); return; }
-      const arr = Object.values(data).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const arr = Object.entries(data).sort(([,a],[,b]) => (b.date||'').localeCompare(a.date||''));
       updMv(arr.length);
-      el.innerHTML = arr.map(m => `<div class="li">
-    <div class="lit">${m.title || 'Untitled'}</div>
-    <div class="lim">${m.date ? new Date(m.date).toLocaleDateString() : '?'}${m.place ? ' · ' + m.place : ''}</div>
-    ${m.note ? `<div class="lib">${m.note}</div>` : ''}
-  </div>`).join('');
+      el.innerHTML = arr.map(([, m]) => {
+        const posterEl = m.poster
+          ? `<img class="mv-li-poster" src="${m.poster}" alt="${m.title||''}" loading="lazy">`
+          : `<div class="mv-li-poster-ph">🎬</div>`;
+        const meta = [
+          m.date ? new Date(m.date+'T00:00:00').toLocaleDateString() : '',
+          m.place || '',
+          m.year  || '',
+          m.type  || ''
+        ].filter(Boolean).join(' · ');
+        return `<div class="mv-li">
+          ${posterEl}
+          <div class="mv-li-body">
+            <div class="mv-li-title">${m.title||'Untitled'}</div>
+            <div class="mv-li-meta">${meta}</div>
+            ${m.rating ? `<div class="mv-li-rating">★ ${m.rating}</div>` : ''}
+            ${m.overview ? `<div class="mv-li-overview">${m.overview}</div>` : ''}
+            ${m.note ? `<div class="mv-li-note">💬 ${m.note}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
       dash();
     }
     onValue(mvRef, rMovies);
