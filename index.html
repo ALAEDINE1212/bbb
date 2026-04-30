@@ -2732,42 +2732,23 @@
     const db = getDatabase(getApp());
     const $  = id => document.getElementById(id);
 
-    /* ── ICE / STUN + TURN (Metered.ca free tier) ── */
-    const TURN_USERNAME   = "dea38a13a615ae74c9577772";
-    const TURN_CREDENTIAL = "RqkkLYU2kqH621S+";
-    const TURN_API_KEY    = "904d8c40307b75a3af02df0c198ff31f95be";
-    const TURN_API_HOST   = "instacuteeooddddfhhh.metered.live";
+    /* ── ICE / STUN + TURN (ExpressTURN — 1000 GB/month free) ── */
+    const TURN_USERNAME   = "000000002092916291";
+    const TURN_CREDENTIAL = "3bar7cVLgMPVZCNK3sPV2PFH5J8=";
+    const TURN_HOST       = "free.expressturn.com:3478";
 
-    /* Static config used immediately — fresh creds are fetched lazily once per session */
-    const STATIC_ICE_CFG = {
+    const ICE_CFG = {
       iceServers: [
-        { urls: 'stun:stun.relay.metered.ca:80'  },
-        { urls: 'stun:stun.l.google.com:19302'   },
-        { urls: 'stun:stun.cloudflare.com:3478'  },
-        { urls: 'turn:global.relay.metered.ca:80',                 username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-        { urls: 'turn:global.relay.metered.ca:80?transport=tcp',   username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-        { urls: 'turn:global.relay.metered.ca:443',                username: TURN_USERNAME, credential: TURN_CREDENTIAL },
-        { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: TURN_USERNAME, credential: TURN_CREDENTIAL }
+        { urls: 'stun:stun.l.google.com:19302'  },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: `turn:${TURN_HOST}`,                    username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        { urls: `turn:${TURN_HOST}?transport=tcp`,      username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        { urls: `turns:free.expressturn.com:443`,       username: TURN_USERNAME, credential: TURN_CREDENTIAL },
+        { urls: `turns:free.expressturn.com:443?transport=tcp`, username: TURN_USERNAME, credential: TURN_CREDENTIAL }
       ],
       iceCandidatePoolSize: 10
     };
-
-    let ICE_CFG = STATIC_ICE_CFG;
-
-    /* Try to fetch fresh, time-limited TURN creds from Metered's REST API.
-       If it works, swap them in — if it fails, the static creds above keep working. */
-    (async () => {
-      try {
-        const r = await fetch(`https://${TURN_API_HOST}/api/v1/turn/credentials?apiKey=${TURN_API_KEY}`);
-        if (r.ok) {
-          const list = await r.json();
-          if (Array.isArray(list) && list.length) {
-            ICE_CFG = { iceServers: list, iceCandidatePoolSize: 10 };
-            console.log('[Together] Loaded fresh TURN credentials from Metered API');
-          }
-        }
-      } catch(_) { /* fall back to static creds silently */ }
-    })();
 
     /* ── State ── */
     let pc           = null;
