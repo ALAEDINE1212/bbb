@@ -1466,6 +1466,172 @@
     .mv-li-note { font-size: .82rem; color: var(--tx2); margin-top: 5px; line-height: 1.5 }
     .mv-li-rating { color: var(--gold); font-size: .72rem; margin-top: 3px }
 
+
+    /* ── MOVIE RATINGS ── */
+    .mv-ratings {
+      display: flex;
+      gap: 10px;
+      margin-top: 7px;
+      flex-wrap: wrap
+    }
+
+    .mv-rating-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px 3px 6px;
+      border-radius: var(--r-pill);
+      font-size: .75rem;
+      font-weight: 700;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.2)
+    }
+
+    .mv-rating-pill .rp-who {
+      font-size: .62rem;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      opacity: .7
+    }
+
+    .mv-rating-pill .rp-score {
+      font-size: .88rem;
+      font-weight: 800;
+      line-height: 1
+    }
+
+    /* ── RATING INPUT SLIDERS ── */
+    .mv-rating-inputs {
+      display: flex;
+      gap: 14px;
+      margin-top: 8px;
+      flex-wrap: wrap
+    }
+
+    .mv-rating-block {
+      flex: 1;
+      min-width: 120px
+    }
+
+    .mv-rating-block label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px
+    }
+
+    .mv-rating-val {
+      font-size: .9rem;
+      font-weight: 800;
+      min-width: 28px;
+      text-align: right;
+      transition: color .2s ease
+    }
+
+    input[type=range].rv {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 4px;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      background: var(--s3)
+    }
+
+    input[type=range].rv::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.5);
+      cursor: pointer;
+      transition: transform .15s ease
+    }
+
+    input[type=range].rv::-webkit-slider-thumb:hover { transform: scale(1.2) }
+    input[type=range].rv::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      border: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,.5);
+      cursor: pointer
+    }
+
+    /* ── MOVIE EDIT MODAL ── */
+    .mv-edit-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px)
+    }
+
+    .mv-edit-overlay.open { display: flex }
+
+    .mv-edit-box {
+      background: var(--s1);
+      border: 1px solid var(--bhi);
+      border-radius: var(--rl);
+      padding: 26px 24px 22px;
+      width: min(480px, 94vw);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--sh-popup);
+      animation: dpIn .25s var(--ease)
+    }
+
+    .mv-edit-box h3 {
+      font-family: var(--fd);
+      font-size: 1.2rem;
+      font-weight: 400;
+      font-variation-settings: "opsz" 24;
+      color: var(--tx);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .mv-edit-poster-row {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 14px
+    }
+
+    .mv-edit-poster-thumb {
+      width: 52px; height: 78px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--s2)
+    }
+
+    .mv-edit-poster-ph {
+      width: 52px; height: 78px;
+      border-radius: 8px;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem
+    }
+
+    .mv-edit-btns { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap }
+
+    /* ── UPDATED MOVIE CARD ── */
+    .mv-li-actions { display: flex; gap: 6px; margin-top: 7px }
+
     /* ══════════════════════════════════════════
        TOGETHER SECTION — WebRTC Video & Screen Share
        ══════════════════════════════════════════ */
@@ -2169,6 +2335,26 @@
           </div>
           <div class="fg"><label>Note (optional)</label><textarea id="mvN"
               placeholder="What did we love about it?"></textarea></div>
+          <!-- dual ratings -->
+          <div class="fg">
+            <label>Your ratings (optional)</label>
+            <div class="mv-rating-inputs">
+              <div class="mv-rating-block">
+                <label>
+                  <span>Alaedine</span>
+                  <span class="mv-rating-val" id="mvRaVal">—</span>
+                </label>
+                <input type="range" class="rv" id="mvRa" min="0" max="10" step="1" value="0" />
+              </div>
+              <div class="mv-rating-block">
+                <label>
+                  <span>Ines</span>
+                  <span class="mv-rating-val" id="mvRiVal">—</span>
+                </label>
+                <input type="range" class="rv" id="mvRi" min="0" max="10" step="1" value="0" />
+              </div>
+            </div>
+          </div>
           <button class="btn bp" id="mvSub">Add movie 🍿</button>
         </div>
         <div class="panel">
@@ -2322,6 +2508,43 @@
         </div>
       </div>
     </section>
+
+
+  <!-- MOVIE EDIT MODAL -->
+  <div class="mv-edit-overlay" id="mvEditOverlay">
+    <div class="mv-edit-box">
+      <h3>✏️ Edit Movie</h3>
+      <div class="mv-edit-poster-row">
+        <div id="mvEditPosterWrap"><div class="mv-edit-poster-ph">🎬</div></div>
+        <div style="flex:1;min-width:0">
+          <div class="mv-search-wrap" style="margin-bottom:10px">
+            <input id="mvEditT" type="text" placeholder="Movie / series title" autocomplete="off" />
+            <div class="mv-suggestions" id="mvEditSugg"></div>
+          </div>
+          <div class="fg" style="margin-bottom:8px"><label>Date watched</label><input id="mvEditD" type="date" /></div>
+          <div class="fg" style="margin-bottom:8px"><label>Where</label><input id="mvEditP" type="text" placeholder="Cinema / sofa..." /></div>
+        </div>
+      </div>
+      <div class="fg"><label>Note</label><textarea id="mvEditN" placeholder="What did we love about it?"></textarea></div>
+      <div class="fg" style="margin-top:10px">
+        <label>Ratings</label>
+        <div class="mv-rating-inputs">
+          <div class="mv-rating-block">
+            <label><span>Alaedine</span><span class="mv-rating-val" id="mvEditRaVal">—</span></label>
+            <input type="range" class="rv" id="mvEditRa" min="0" max="10" step="1" value="0" />
+          </div>
+          <div class="mv-rating-block">
+            <label><span>Ines</span><span class="mv-rating-val" id="mvEditRiVal">—</span></label>
+            <input type="range" class="rv" id="mvEditRi" min="0" max="10" step="1" value="0" />
+          </div>
+        </div>
+      </div>
+      <div class="mv-edit-btns">
+        <button class="btn bg" id="mvEditCancel">Cancel</button>
+        <button class="btn bp" id="mvEditSave">Save changes 💕</button>
+      </div>
+    </div>
+  </div>
 
     <!-- TOGETHER -->
     <section class="sec" id="s-together">
@@ -2810,52 +3033,263 @@
     $('mvSub').addEventListener('click', async () => {
       const t = $('mvT').value.trim(), d = $('mvD').value, p = $('mvP').value.trim(), n = $('mvN').value.trim();
       if (!t || !d) return;
-      const entry = { title: t, date: d, place: p, note: n };
+      const ra = parseInt($('mvRa').value) || 0;
+      const ri = parseInt($('mvRi').value) || 0;
+      const entry = { title: t, date: d, place: p, note: n, ratingA: ra, ratingI: ri };
       // attach TMDB metadata if a result was selected
       if (mvSelected) {
-        entry.poster   = mvSelected.poster;
-        entry.overview = mvSelected.overview;
-        entry.year     = mvSelected.year;
-        entry.rating   = mvSelected.rating;
-        entry.type     = mvSelected.type;
-        entry.tmdbId   = mvSelected.id;
+        entry.poster      = mvSelected.poster;
+        entry.overview    = mvSelected.overview;
+        entry.year        = mvSelected.year;
+        entry.tmdbRating  = mvSelected.rating;
+        entry.type        = mvSelected.type;
+        entry.tmdbId      = mvSelected.id;
       }
       await push(mvRef, entry);
       $('mvT').value = ''; $('mvN').value = ''; $('mvP').value = ''; $('mvD').value = iso();
+      $('mvRa').value = 0; $('mvRi').value = 0;
+      wireSlider('mvRa','mvRaVal'); wireSlider('mvRi','mvRiVal');
       clearMovieSelection();
       hearts();
     });
 
+    /* ── rating colour helper: 0=red, 5=gold, 10=green ── */
+    function ratingColor(n) {
+      if (n === null || n === undefined || n === 0) return 'var(--tx4)';
+      const t = (n - 1) / 9; // 1→0, 10→1
+      if (t < 0.5) {
+        // red → gold
+        const r = 232, g = Math.round(96 + (180 - 96) * (t / 0.5)), b = 60;
+        return `rgb(${r},${g},${b})`;
+      } else {
+        // gold → green
+        const r = Math.round(212 - (212 - 80) * ((t - 0.5) / 0.5)), g = 190, b = 60;
+        return `rgb(${r},${g},${b})`;
+      }
+    }
+
+    function ratingLabel(n) {
+      if (!n) return '—';
+      if (n <= 2) return n + ' 💀';
+      if (n <= 4) return n + ' 😕';
+      if (n <= 6) return n + ' 😐';
+      if (n <= 8) return n + ' 😊';
+      return n + ' 🤩';
+    }
+
+    function ratingTrack(el, n) {
+      const pct = (n / 10) * 100;
+      const col = ratingColor(n);
+      el.style.background = `linear-gradient(to right, ${col} ${pct}%, var(--s3) ${pct}%)`;
+    }
+
+    /* wire up the add-form sliders */
+    function wireSlider(rangeId, valId) {
+      const r = $(rangeId), v = $(valId);
+      const upd = () => {
+        const n = parseInt(r.value);
+        v.textContent = n === 0 ? '—' : String(n);
+        v.style.color = n === 0 ? 'var(--tx4)' : ratingColor(n);
+        ratingTrack(r, n);
+      };
+      r.addEventListener('input', upd);
+      upd();
+    }
+    wireSlider('mvRa', 'mvRaVal');
+    wireSlider('mvRi', 'mvRiVal');
+
     /* render the list */
+    let mvData = {};
     function rMovies(snap) {
       const data = snap.val(); const el = $('movieList');
+      mvData = data || {};
       if (!data) { el.innerHTML = '<div class="es">No movies yet 🍿</div>'; updMv(0); dash(); return; }
       const arr = Object.entries(data).sort(([,a],[,b]) => (b.date||'').localeCompare(a.date||''));
       updMv(arr.length);
-      el.innerHTML = arr.map(([, m]) => {
+      el.innerHTML = arr.map(([id, m]) => {
         const posterEl = m.poster
           ? `<img class="mv-li-poster" src="${m.poster}" alt="${m.title||''}" loading="lazy">`
           : `<div class="mv-li-poster-ph">🎬</div>`;
         const meta = [
-          m.date ? new Date(m.date+'T00:00:00').toLocaleDateString() : '',
+          m.date  ? new Date(m.date+'T00:00:00').toLocaleDateString() : '',
           m.place || '',
           m.year  || '',
           m.type  || ''
         ].filter(Boolean).join(' · ');
+        const ra = m.ratingA || 0, ri = m.ratingI || 0;
+        const ratingsHtml = (ra || ri) ? `<div class="mv-ratings">
+          ${ra ? `<div class="mv-rating-pill" style="border-color:${ratingColor(ra)}22">
+            <span class="rp-who">A</span>
+            <span class="rp-score" style="color:${ratingColor(ra)}">${ratingLabel(ra)}</span>
+          </div>` : ''}
+          ${ri ? `<div class="mv-rating-pill" style="border-color:${ratingColor(ri)}22">
+            <span class="rp-who">I</span>
+            <span class="rp-score" style="color:${ratingColor(ri)}">${ratingLabel(ri)}</span>
+          </div>` : ''}
+        </div>` : '';
         return `<div class="mv-li">
           ${posterEl}
           <div class="mv-li-body">
             <div class="mv-li-title">${m.title||'Untitled'}</div>
             <div class="mv-li-meta">${meta}</div>
-            ${m.rating ? `<div class="mv-li-rating">★ ${m.rating}</div>` : ''}
+            ${m.tmdbRating ? `<div class="mv-li-rating">★ ${m.tmdbRating} TMDB</div>` : ''}
             ${m.overview ? `<div class="mv-li-overview">${m.overview}</div>` : ''}
+            ${ratingsHtml}
             ${m.note ? `<div class="mv-li-note">💬 ${m.note}</div>` : ''}
+            <div class="mv-li-actions">
+              <button class="btn be" data-id="${id}" style="font-size:.72rem;padding:3px 10px">✏️ Edit</button>
+            </div>
           </div>
         </div>`;
       }).join('');
       dash();
     }
     onValue(mvRef, rMovies);
+
+    /* ── save movie (updated to include ratings) ── */
+    // Patch save to include ratings
+    const _origMvSub = $('mvSub');
+    _origMvSub.addEventListener('click', () => {
+      const ra = parseInt($('mvRa').value) || 0;
+      const ri = parseInt($('mvRi').value) || 0;
+      // ratings are patched into the entry in the existing handler above
+      // but we need to reset sliders after save
+      setTimeout(() => {
+        $('mvRa').value = 0; $('mvRi').value = 0;
+        wireSlider('mvRa','mvRaVal'); wireSlider('mvRi','mvRiVal');
+      }, 100);
+    }, true); // capture phase so it fires before the existing handler
+
+    /* ── EDIT MODAL ── */
+    let mvEditId   = null;
+    let mvEditSel  = null;   // TMDB selection inside edit modal
+
+    function openMvEdit(id) {
+      const m = mvData[id]; if (!m) return;
+      mvEditId  = id;
+      mvEditSel = null;
+
+      $('mvEditT').value = m.title || '';
+      $('mvEditD').value = m.date  || '';
+      $('mvEditP').value = m.place || '';
+      $('mvEditN').value = m.note  || '';
+
+      // poster
+      const pw = $('mvEditPosterWrap');
+      pw.innerHTML = m.poster
+        ? `<img class="mv-edit-poster-thumb" src="${m.poster}" alt="" />`
+        : `<div class="mv-edit-poster-ph">🎬</div>`;
+
+      // sliders
+      $('mvEditRa').value = m.ratingA || 0;
+      $('mvEditRi').value = m.ratingI || 0;
+      wireSlider('mvEditRa','mvEditRaVal');
+      wireSlider('mvEditRi','mvEditRiVal');
+
+      $('mvEditOverlay').classList.add('open');
+      setTimeout(() => $('mvEditT').focus(), 80);
+    }
+
+    function closeMvEdit() {
+      $('mvEditOverlay').classList.remove('open');
+      $('mvEditSugg').classList.remove('open');
+      mvEditId = null; mvEditSel = null;
+    }
+
+    $('mvEditCancel').addEventListener('click', closeMvEdit);
+    $('mvEditOverlay').addEventListener('click', e => { if (e.target === $('mvEditOverlay')) closeMvEdit(); });
+
+    /* TMDB search inside edit modal */
+    const doEditSearch = debounce(async (q) => {
+      const box = $('mvEditSugg');
+      if (q.length < 2) { box.classList.remove('open'); return; }
+      box.innerHTML = '<div class="mv-loading">Searching… 🎬</div>';
+      box.classList.add('open');
+      const results = await tmdbSearch(q);
+      renderSuggestionsIn(box, results);
+    }, 320);
+
+    function renderSuggestionsIn(box, results) {
+      if (!results.length) { box.classList.remove('open'); box.innerHTML = ''; return; }
+      box.innerHTML = results.map((r, i) => {
+        const title  = r.title || r.name || 'Unknown';
+        const year   = (r.release_date || r.first_air_date || '').slice(0,4);
+        const type   = r.media_type === 'tv' ? 'Series' : 'Movie';
+        const rating = r.vote_average ? r.vote_average.toFixed(1) : '';
+        const poster = r.poster_path
+          ? `<img class="mv-sug-poster" src="${TMDB_IMG}${r.poster_path}" alt="" loading="lazy">`
+          : `<div class="mv-sug-poster-ph">🎬</div>`;
+        return `<div class="mv-sug-item" data-idx="${i}" tabindex="-1">
+          ${poster}
+          <div class="mv-sug-info">
+            <div class="mv-sug-title">${title}</div>
+            <div class="mv-sug-meta">${year ? year+' · ' : ''}${type}${rating ? ' · <span class="mv-sug-rating">★ '+rating+'</span>' : ''}</div>
+          </div>
+        </div>`;
+      }).join('');
+      box._results = results;
+      box.classList.add('open');
+    }
+
+    $('mvEditT').addEventListener('input', e => {
+      mvEditSel = null;
+      doEditSearch(e.target.value.trim());
+    });
+
+    $('mvEditSugg').addEventListener('mousedown', e => {
+      const item = e.target.closest('.mv-sug-item');
+      if (!item || !$('mvEditSugg')._results) return;
+      e.preventDefault();
+      const r = $('mvEditSugg')._results[parseInt(item.dataset.idx)];
+      const title = r.title || r.name || '';
+      const year  = (r.release_date || r.first_air_date || '').slice(0,4);
+      const type  = r.media_type === 'tv' ? 'Series' : 'Movie';
+      mvEditSel = {
+        title,
+        poster:   r.poster_path ? TMDB_IMG_LG + r.poster_path : '',
+        overview: (r.overview||'').slice(0,220),
+        year, type,
+        tmdbRating: r.vote_average ? r.vote_average.toFixed(1) : '',
+        tmdbId: r.id
+      };
+      $('mvEditT').value = title;
+      $('mvEditSugg').classList.remove('open');
+      const pw = $('mvEditPosterWrap');
+      pw.innerHTML = mvEditSel.poster
+        ? `<img class="mv-edit-poster-thumb" src="${mvEditSel.poster}" alt="" />`
+        : `<div class="mv-edit-poster-ph">🎬</div>`;
+    });
+
+    /* save edits */
+    $('mvEditSave').addEventListener('click', async () => {
+      if (!mvEditId) return;
+      const upd = {
+        title:   $('mvEditT').value.trim() || mvData[mvEditId]?.title || '',
+        date:    $('mvEditD').value,
+        place:   $('mvEditP').value.trim(),
+        note:    $('mvEditN').value.trim(),
+        ratingA: parseInt($('mvEditRa').value) || 0,
+        ratingI: parseInt($('mvEditRi').value) || 0
+      };
+      // if user picked a new TMDB result, update poster/meta
+      if (mvEditSel) {
+        upd.poster     = mvEditSel.poster;
+        upd.overview   = mvEditSel.overview;
+        upd.year       = mvEditSel.year;
+        upd.type       = mvEditSel.type;
+        upd.tmdbRating = mvEditSel.tmdbRating;
+        upd.tmdbId     = mvEditSel.tmdbId;
+      }
+      await update(dr(db, 'movies/' + mvEditId), upd);
+      closeMvEdit();
+      hearts();
+    });
+
+    /* click Edit button inside movie card */
+    $('movieList').addEventListener('click', e => {
+      const b = e.target.closest('[data-id]');
+      if (b) openMvEdit(b.dataset.id);
+    });
 
     /* ── MEETINGS ── */
     const meRef = dr(db, 'meetings');
