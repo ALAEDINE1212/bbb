@@ -1,6 +1,8 @@
-/* sw.js – Our Little Universe Service Worker with Push Support */
+/* Our Little Universe — Service Worker
+ * Lightweight: caches the shell so the app loads instantly and works offline.
+ * Bumps the cache name on every release. */
 
-const CACHE_NAME = 'olu-cache-v2';
+const CACHE_NAME = 'olu-cache-v1';
 const SHELL = [
   './',
   './index.html',
@@ -9,22 +11,23 @@ const SHELL = [
   './icon-512.png',
   './icon-180.png',
   './icon-32.png',
+  // 3rd-party libs the app uses (cached so call UI loads offline once seen)
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=DM+Sans:opsz,wght@9..40,300..600&family=Caveat:wght@400;500&display=swap'
 ];
 
-// ── Install ──
+/* INSTALL — pre-cache the shell */
 self.addEventListener('install', evt => {
   evt.waitUntil(
     caches.open(CACHE_NAME)
       .then(c => c.addAll(SHELL.map(u => new Request(u, { credentials: 'omit' }))))
-      .catch(() => {})
+      .catch(() => { /* network may be flaky on first install — fine */ })
       .then(() => self.skipWaiting())
   );
 });
 
-// ── Activate ──
+/* ACTIVATE — clean up old caches */
 self.addEventListener('activate', evt => {
   evt.waitUntil(
     caches.keys().then(keys =>
@@ -33,10 +36,13 @@ self.addEventListener('activate', evt => {
   );
 });
 
-// ── Fetch (stale-while-revalidate) ──
+/* FETCH — strategy depends on the request */
 self.addEventListener('fetch', evt => {
   const req = evt.request;
   const url = new URL(req.url);
+
+  // Never intercept Firebase / WebSocket / Realtime DB / WebRTC signaling.
+  // These MUST go straight to the network — caching breaks live updates.
   if (
     url.hostname.includes('firebaseio.com') ||
     url.hostname.includes('firebase.googleapis.com') ||
@@ -49,8 +55,10 @@ self.addEventListener('fetch', evt => {
     url.protocol === 'wss:' || url.protocol === 'ws:' ||
     req.method !== 'GET'
   ) {
-    return;
+    return; // let the browser handle it normally
   }
+
+  // Stale-while-revalidate for everything else (fonts, libs, html, icons)
   evt.respondWith(
     caches.open(CACHE_NAME).then(cache =>
       cache.match(req).then(cached => {
@@ -59,37 +67,14 @@ self.addEventListener('fetch', evt => {
             cache.put(req, res.clone()).catch(() => {});
           }
           return res;
-        }).catch(() => cached);
+        }).catch(() => cached); // offline → fall back to cache
         return cached || network;
       })
     )
   );
 });
 
-// ── Push Notification Handler ──
-self.addEventListener('push', evt => {
-  let data = { title: '🌸 Mood Reminder', body: 'How are you feeling today? Log your mood 💕', icon: 'icon-192.png' };
-  if (evt.data) {
-    try {
-      const parsed = evt.data.json();
-      data = { ...data, ...parsed };
-    } catch (_) {}
-  }
-  evt.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: data.icon || 'icon-192.png',
-      badge: 'icon-192.png',
-      vibrate: [200, 100, 200],
-      data: { url: data.url || './index.html#mood' }
-    })
-  );
-});
-
-// ── Notification Click ──
-self.addEventListener('notificationclick', evt => {
-  evt.notification.close();
-  evt.waitUntil(
-    clients.openWindow(evt.notification.data.url || './index.html')
-  );
+/* Listen for skipWaiting message from the page (so updates apply on reload) */
+self.addEventListener('message', evt => {
+  if (evt.data === 'SKIP_WAITING') self.skipWaiting();
 });
