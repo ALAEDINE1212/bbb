@@ -3573,7 +3573,7 @@
         <div class="fg"><label>What happened?</label><textarea id="storyText" placeholder="Write a short memory…" rows="3"></textarea></div>
         <div class="fg">
           <label>Photo (optional)</label>
-          <input id="storyPhotoFile" type="file" accept="image/*" />
+          <input id="storyPhotoFile" type="file" accept="image/jpeg, image/png, image/webp" />
           <div class="story-preview-photo" id="storyPhotoPreview"><img id="storyPhotoPreviewImg" src="" alt="" /></div>
         </div>
         <div class="story-modal-btns">
@@ -3669,7 +3669,7 @@
             </div>
             <div class="fg"><label>Note (optional)</label><textarea id="plNo" placeholder="Why was this place special?"></textarea></div>
             <div class="fg"><label>Pick from uploaded photos</label><select id="plPs"><option value="">No photo</option></select></div>
-            <div class="fg"><label>Or upload a new photo</label><input id="plPf" type="file" accept="image/*" /></div>
+            <div class="fg"><label>Or upload a new photo</label><input id="plPf" type="file" accept="image/jpeg, image/png, image/webp" /></div>
             <button class="btn bp" id="plSub">Add place 🌍</button>
           </div>
           <div class="panel">
@@ -3760,7 +3760,7 @@
             Firebase Console → Storage → Rules → set <code>allow read, write: if true;</code><br>
             CORS errors? Run: <code>gsutil cors set cors.json gs://my-baby-35bb9.firebasestorage.app</code>
           </div>
-          <div class="fg"><label>Choose photo</label><input id="phF" type="file" accept="image/*" /></div>
+          <div class="fg"><label>Choose photo</label><input id="phF" type="file" accept="image/jpeg, image/png, image/webp" /></div>
           <div class="fg"><label>Caption</label><input id="phC" type="text" placeholder="That day at the park..." /></div>
           <button class="btn bp" id="phSub">Upload photo 🥰</button>
           <div id="pus"></div>
@@ -3951,6 +3951,7 @@
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-analytics.js";
     import { getDatabase, ref as dr, push, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
     import { getStorage, ref as sr, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
+    import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-messaging.js";
 
     /* ── FIREBASE CONFIG ── */
     const cfg = {
@@ -3967,6 +3968,7 @@
     try { getAnalytics(app); } catch (_) { /* non-essential */ }
     const db = getDatabase(app);
     const storage = getStorage(app, "gs://my-baby-35bb9.firebasestorage.app");
+    const messaging = getMessaging(app);
 
     /* ── DATES CONFIG ── */
     const DATE_MET = "2025-08-16";
@@ -4152,7 +4154,6 @@
       const empty = $('storyEmpty');
       const entries = Object.entries(sData);
 
-      // remove empty placeholder if present
       if (empty && entries.length) empty.style.display = 'none';
       else if (empty && !entries.length) { empty.style.display = 'flex'; } else if (!entries.length) {
         container.innerHTML = `
@@ -4376,18 +4377,14 @@
     $('storyDetail').addEventListener('click', e => { if (e.target === $('storyDetail')) closeStoryDetail(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStoryDetail(); });
 
-    /* ── Click on story card (excluding action buttons) ── */
     $('storyTimeline').addEventListener('click', e => {
-      // Ignore clicks on action buttons (edit/delete)
       if (e.target.closest('.event-actions')) return;
-
       const card = e.target.closest('.story-event');
       if (!card) return;
       const id = card.dataset.id;
       if (id) openStoryDetail(id);
     });
 
-    // Also handle edit/delete actions as before
     $('storyTimeline').addEventListener('click', async e => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
@@ -4407,7 +4404,6 @@
       }
     });
 
-    /* ── Firebase listener for story ── */
     onValue(sRef, snap => {
       sData = snap.val() || {};
       renderStoryTimeline();
@@ -5129,47 +5125,55 @@
     function checkMoodReminder() {
       const today = iso();
       const banner = $('moodBanner');
-      // If today's mood is already logged, hide banner
       if (moods[today]) {
         banner.classList.remove('show');
         return;
       }
-      // Check if dismissed today
       const dismissedDate = localStorage.getItem('moodReminderDismissed');
       if (dismissedDate === today) {
         banner.classList.remove('show');
         return;
       }
-      // Show banner
       banner.classList.add('show');
-      // Send browser notification if permission granted
-      if (Notification.permission === 'granted') {
-        try {
-          new Notification('🌸 Don\'t forget your mood!', {
-            body: 'How are you feeling today? Log your mood in the app 💕',
-            icon: 'icon-192.png'
+    }
+
+    /* 🔥 FIREBASE CLOUD MESSAGING PERMISSION SETUP 🔥 */
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) return;
+      
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          console.log('🔔 Notification permission granted. Fetching token...');
+          
+          const token = await getToken(messaging, { 
+            vapidKey: 'BCRsy6-sjDj8LRUfrjLeNvRJJZd0E83Ik4ga5izvf29oSYmft4DYPlt22e0-uL03X8g1YQfOsqg954XkSROvkyU' 
           });
-        } catch (_) {}
-      }
-    }
-
-    // Request notification permission when user navigates to mood section
-    function requestNotificationPermission() {
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().then(perm => {
-          if (perm === 'granted') {
-            console.log('🔔 Notification permission granted.');
+          
+          if (token) {
+            console.log('Push token:', token);
           }
-        });
+        }
+      } catch (error) {
+        console.error('Error getting push token', error);
       }
     }
 
-    // Event listeners for mood banner
+    try {
+      onMessage(messaging, (payload) => {
+        console.log('Message received. ', payload);
+        new Notification(payload.notification.title || "New Message", {
+          body: payload.notification.body,
+          icon: 'icon-192.png'
+        });
+      });
+    } catch (e) {
+      console.warn("Messaging not supported/configured", e);
+    }
+
     $('moodBannerLog').addEventListener('click', () => {
-      // Close banner, scroll to the mood form
       $('moodBanner').classList.remove('show');
       document.querySelector('#s-mood .panel:first-child').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Focus on date input
       setTimeout(() => $('moDa').focus(), 300);
     });
 
@@ -5179,23 +5183,14 @@
       $('moodBanner').classList.remove('show');
     });
 
-    // Override moSub to also clear the banner when a mood is saved today
-    const originalMoSub = $('moSub').addEventListener('click', async () => {
-      // The existing listener is below, we'll wrap it
-    });
-    // We'll patch the listener by adding a check after save
-    // We'll modify the moSub listener below
-
     /* ── MOOD SUBMIT (with reminder cleanup) ── */
     const moSubOrig = $('moSub');
-    // Remove any existing listeners (just to be safe, we'll replace)
     const newMoSub = async () => {
       const d = $('moDa').value,
         tx = $('moTx').value.trim();
       if (!d) return;
       await set(dr(db, 'moods/' + d), { color: selectedColor, text: tx });
       $('moTx').value = '';
-      // If today's mood is saved, hide banner and clear dismissal
       const today = iso();
       if (d === today) {
         $('moodBanner').classList.remove('show');
@@ -5203,40 +5198,33 @@
       }
       hearts();
     };
-    // Replace listener
+    
     $('moSub').removeEventListener('click', moSubOrig);
     $('moSub').addEventListener('click', newMoSub);
 
-    // Also trigger on mood data load to check reminder
     onValue(moRef, snap => {
       moods = snap.val() || {};
       buildCal(cY, cM);
       updMStats();
-      // Check reminder only if we are on the mood section (visible)
-      // We'll check whenever data changes, but only show if section is active.
       const moodSec = $('s-mood');
       if (moodSec.classList.contains('active')) {
         checkMoodReminder();
       }
     });
 
-    // Also check when navigating to mood section
     const origNav = nav;
     nav = function(n) {
       origNav(n);
       if (n === 'mood') {
         requestNotificationPermission();
-        setTimeout(checkMoodReminder, 300); // wait for data to load
+        setTimeout(checkMoodReminder, 300);
       }
     };
-    // Override the global nav
     window.nav = nav;
-    // Re-bind nav buttons to use the new nav
     document.querySelectorAll('[data-s]').forEach(b => {
       b.removeEventListener('click', nav);
       b.addEventListener('click', () => nav(b.dataset.s));
     });
-    // Also ensure initial mood check if mood is already active
     if ($('s-mood').classList.contains('active')) {
       setTimeout(() => {
         requestNotificationPermission();
@@ -5245,8 +5233,6 @@
     }
 
     /* ── MONTH NAV ── */
-    $('moSub').addEventListener('click', newMoSub); // already set above
-
     $('prevM').addEventListener('click', () => { cM--; if (cM < 0) { cM = 11;
         cY--; } buildCal(cY, cM);
       updMStats(); });
@@ -5945,6 +5931,7 @@
         .hostname === '127.0.0.1')) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js', { scope: './' })
+          // We also explicitly register the firebase messaging sw behind the scenes if required, but Firebase SDK does it automatically if the file exists at the root.
           .then(reg => {
             console.log('[PWA] Service worker registered. Scope:', reg.scope);
             reg.addEventListener('updatefound', () => {
