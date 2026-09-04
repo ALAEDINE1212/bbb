@@ -5146,8 +5146,12 @@
         if (permission === 'granted') {
           console.log('🔔 Notification permission granted. Fetching token...');
           
+          // WAIT for the Service Worker to be fully active before asking for the token
+          const registration = await navigator.serviceWorker.ready;
+          
           const token = await getToken(messaging, { 
-            vapidKey: 'BCRsy6-sjDj8LRUfrjLeNvRJJZd0E83Ik4ga5izvf29oSYmft4DYPlt22e0-uL03X8g1YQfOsqg954XkSROvkyU' 
+            vapidKey: 'BCRsy6-sjDj8LRUfrjLeNvRJJZd0E83Ik4ga5izvf29oSYmft4DYPlt22e0-uL03X8g1YQfOsqg954XkSROvkyU',
+            serviceWorkerRegistration: registration // Tell Firebase to use our existing sw.js
           });
           
           if (token) {
