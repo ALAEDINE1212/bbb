@@ -920,6 +920,82 @@
 
     .pc-cap { padding: 5px 9px 7px; font-size: .76rem; color: var(--tx3) }
 
+    .pc-broken {
+      width: 100%;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--s2);
+      color: var(--tx3);
+      font-size: .7rem;
+      text-align: center;
+      padding: 8px
+    }
+
+    .pc-broken .bi { font-size: 1.3rem }
+
+    /* ── PHOTO LIGHTBOX ── */
+    .lb-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 600;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,.82);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: zoom-out;
+      padding: 24px
+    }
+
+    .lb-overlay.open { display: flex }
+
+    .lb-box {
+      max-width: min(920px, 92vw);
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      cursor: default;
+      animation: dpIn .22s var(--ease)
+    }
+
+    .lb-box img {
+      max-width: 100%;
+      max-height: 76vh;
+      object-fit: contain;
+      border-radius: var(--r);
+      box-shadow: var(--sh-glow-rose)
+    }
+
+    .lb-cap {
+      color: var(--tx3);
+      font-size: .85rem;
+      text-align: center
+    }
+
+    .lb-close {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--s1);
+      color: var(--tx);
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer
+    }
+
     .uinfo {
       background: var(--gold-g);
       border: 1px solid rgba(212, 180, 138, .2);
@@ -2509,6 +2585,14 @@
       </div>
     </section>
 
+    <!-- PHOTO LIGHTBOX -->
+    <div class="lb-overlay" id="lbOverlay">
+      <button class="lb-close" id="lbClose" type="button" aria-label="Close">✕</button>
+      <div class="lb-box">
+        <img id="lbImg" src="" alt="">
+        <div class="lb-cap" id="lbCap"></div>
+      </div>
+    </div>
 
   <!-- MOVIE EDIT MODAL -->
   <div class="mv-edit-overlay" id="mvEditOverlay">
@@ -3408,11 +3492,29 @@
 
     /* ── PHOTOS ── */
     const phRef = dr(db, 'photos');
+
+    // iPhones often save photos as HEIC/HEIF, which most browsers (other than Safari)
+    // cannot display in an <img> tag. If a HEIC/HEIF file is picked, convert it to a
+    // normal JPEG in the browser before it ever reaches Storage, so it always displays.
+    async function toDisplayableImage(file) {
+      const isHeic = /\.hei[cf]$/i.test(file.name) || /heic|heif/i.test(file.type);
+      if (!isHeic) return file;
+      const mod = await import('https://esm.sh/heic2any@0.0.4');
+      const heic2any = mod.default || mod;
+      const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+      const jpgBlob = Array.isArray(blob) ? blob[0] : blob;
+      const newName = file.name.replace(/\.hei[cf]$/i, '.jpg');
+      return new File([jpgBlob], newName, { type: 'image/jpeg' });
+    }
+
     $('phSub').addEventListener('click', async () => {
-      const f = $('phF').files[0], c = $('phC').value.trim(), st = $('pus');
+      let f = $('phF').files[0];
+      const c = $('phC').value.trim(), st = $('pus');
       if (!f) { st.style.color = '#e86060'; st.textContent = '⚠️ Please choose a photo.'; return; }
       st.style.color = 'var(--tx3)'; st.textContent = '⏳ Uploading…';
       try {
+        try { f = await toDisplayableImage(f); }
+        catch (convErr) { console.warn('HEIC conversion failed, uploading original file', convErr); }
         const ts = Date.now();
         const ref = sr(storage, `photos/${ts}_${f.name}`);
         await uploadBytes(ref, f);
@@ -3435,7 +3537,11 @@
       sel.innerHTML = '<option value="">No photo</option>';
       if (!data) { grid.innerHTML = '<div class="es" style="grid-column:1/-1">Add your first photo 📷</div>'; return; }
       grid.innerHTML = Object.entries(data).map(([, p]) => `
-    <div class="pc"><img src="${p.url}" alt="${p.caption || ''}" loading="lazy"><div class="pc-cap">${p.caption || ''}</div></div>`).join('');
+    <div class="pc" data-url="${p.url}" data-cap="${(p.caption || '').replace(/"/g, '&quot;')}">
+      <img src="${p.url}" alt="${p.caption || ''}" loading="lazy"
+           onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'pc-broken',innerHTML:'<span class=&quot;bi&quot;>🖼️</span>Photo failed to load'}))">
+      <div class="pc-cap">${p.caption || ''}</div>
+    </div>`).join('');
       Object.entries(data).forEach(([, p]) => {
         const o = document.createElement('option');
         o.value = p.url; o.textContent = p.caption || 'Photo';
@@ -3444,6 +3550,26 @@
       });
     }
     onValue(phRef, rPhotos);
+
+    /* ── PHOTO LIGHTBOX (click a photo to see it bigger) ── */
+    const lbOverlay = $('lbOverlay'), lbImg = $('lbImg'), lbCap = $('lbCap');
+    function openLightbox(url, cap) {
+      lbImg.src = url; lbImg.alt = cap || '';
+      lbCap.textContent = cap || '';
+      lbOverlay.classList.add('open');
+    }
+    function closeLightbox() {
+      lbOverlay.classList.remove('open');
+      lbImg.src = '';
+    }
+    $('photoGrid').addEventListener('click', e => {
+      const card = e.target.closest('.pc');
+      if (!card) return;
+      openLightbox(card.getAttribute('data-url'), card.getAttribute('data-cap'));
+    });
+    $('lbClose').addEventListener('click', closeLightbox);
+    lbOverlay.addEventListener('click', e => { if (e.target === lbOverlay) closeLightbox(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && lbOverlay.classList.contains('open')) closeLightbox(); });
 
     /* ── MOOD CALENDAR ── */
     const moRef = dr(db, 'moods'); let moods = {};
