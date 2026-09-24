@@ -1,12 +1,14 @@
 {
-  "0": "manifest.json",
-  "1": "sw.js",
-  "2": "Our Little Universe (couple app)",
-  "3": "hearts() floating hearts effect",
-  "4": "dash() stats cards",
-  "5": "Firebase Realtime Database",
-  "6": "PWA Icon 512x512",
-  "7": "Leaflet + OpenStreetMap tiles",
-  "8": "CLAUDE.md",
-  "9": "README.md"
+  "0": "Our Little Universe (couple app)",
+  "1": "manifest.json",
+  "2": "Dashboard weather widget (two cities)",
+  "3": "WebRTC Together module",
+  "4": "Icon refresher (refreshIcons + MutationObserver)",
+  "5": "dash() stats cards",
+  "6": "Floating glass dock nav",
+  "7": "Places map screen",
+  "8": "PWA Icon 512x512",
+  "9": "CLAUDE.md",
+  "10": "README.md",
+  "11": "updMStats() mood statistics (keyword regex)"
 }

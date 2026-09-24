@@ -5259,6 +5259,82 @@
       }
     }
 
+    /* ── Mobile overflow guard ──
+       Grid/flex items default to min-width:auto, so one long nowrap title or a wide
+       control in a card widens the whole column past the viewport. Let items shrink,
+       and clip (not scroll) any stray horizontal spill. `clip` keeps overflow-y visible,
+       so dropdowns and glows are not cut off; `hidden` is the fallback for older browsers. */
+    html,
+    body,
+    .sec {
+      max-width: 100%;
+      overflow-x: hidden;
+      overflow-x: clip
+    }
+
+    .mw {
+      max-width: min(100%, 1180px);
+      overflow-x: hidden;
+      overflow-x: clip
+    }
+
+    .panel,
+    .g2,
+    .frow,
+    .mv-rating-inputs {
+      max-width: 100%;
+      box-sizing: border-box
+    }
+
+    .panel,
+    .g2>*,
+    .frow>*,
+    .fg,
+    .mv-rating-block,
+    .mv-search-wrap,
+    .mv-li,
+    .mv-li-body,
+    .li {
+      min-width: 0
+    }
+
+    .g2,
+    .frow {
+      grid-template-columns: repeat(2, minmax(0, 1fr))
+    }
+
+    .mv-rating-block {
+      min-width: 0
+    }
+
+    @media (max-width: 768px) {
+      .g2,
+      .frow {
+        grid-template-columns: minmax(0, 1fr)
+      }
+      input[type="text"],
+      input[type="date"],
+      input[type="url"],
+      textarea,
+      select {
+        font-size: 16px !important
+      }
+      .frow>.fg {
+        margin-bottom: 12px
+      }
+    }
+
+    @media (max-width: 480px) {
+      .mv-rating-inputs {
+        flex-direction: column;
+        gap: 12px
+      }
+      .mv-rating-block {
+        width: 100%;
+        min-width: 0
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *,
       *::before,
