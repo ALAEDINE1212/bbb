@@ -1,0 +1,50 @@
+{
+  "manifest.json": {
+    "mtime": 1788529304.6285582,
+    "seen": 1790266989.4516926,
+    "ast_hash": "cd0b9f9ebe90d6c67fb2fdd41339da81",
+    "semantic_hash": "cd0b9f9ebe90d6c67fb2fdd41339da81"
+  },
+  "sw.js": {
+    "mtime": 1788542477.6442046,
+    "seen": 1790266989.4516966,
+    "ast_hash": "2f2cedc5a8713cf63c92164e30d617cd",
+    "semantic_hash": "2f2cedc5a8713cf63c92164e30d617cd"
+  },
+  "README.md": {
+    "mtime": 1788529304.6285582,
+    "seen": 1790266989.4516985,
+    "ast_hash": "72748576e35898a9b91e317efbacc3f1",
+    "semantic_hash": "72748576e35898a9b91e317efbacc3f1"
+  },
+  "index.html": {
+    "mtime": 1788542903.0306604,
+    "seen": 1790266989.4516997,
+    "ast_hash": "cf99f48bd08bd78c0892cc704401387f",
+    "semantic_hash": "cf99f48bd08bd78c0892cc704401387f"
+  },
+  "icon-180.png": {
+    "mtime": 1788529304.6285582,
+    "seen": 1790266989.4517004,
+    "ast_hash": "7509ab96cb1a074f3866aec1cc7d2220",
+    "semantic_hash": "7509ab96cb1a074f3866aec1cc7d2220"
+  },
+  "icon-192.png": {
+    "mtime": 1788529304.6285582,
+    "seen": 1790266989.4517014,
+    "ast_hash": "30549546ef56288fa116465d80aec3d7",
+    "semantic_hash": "30549546ef56288fa116465d80aec3d7"
+  },
+  "icon-32.png": {
+    "mtime": 1788529304.6285582,
+    "seen": 1790266989.4517024,
+    "ast_hash": "3666ef2496d6c63031677d598d124077",
+    "semantic_hash": "3666ef2496d6c63031677d598d124077"
+  },
+  "icon-512.png": {
+    "mtime": 1788529304.6285582,
+    "seen": 1790266989.4517033,
+    "ast_hash": "6b35fa192b8568080cc8002613bc30af",
+    "semantic_hash": "6b35fa192b8568080cc8002613bc30af"
+  }
+}

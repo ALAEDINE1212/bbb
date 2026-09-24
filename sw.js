@@ -2,7 +2,7 @@
  * Lightweight: caches the shell so the app loads instantly and works offline.
  * Bumps the cache name on every release. */
 
-const CACHE_NAME = 'olu-cache-v1';
+const CACHE_NAME = 'olu-cache-v2';
 const SHELL = [
   './',
   './index.html',
@@ -14,7 +14,8 @@ const SHELL = [
   // 3rd-party libs the app uses (cached so call UI loads offline once seen)
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=DM+Sans:opsz,wght@9..40,300..600&family=Caveat:wght@400;500&display=swap'
+  'https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js',
+  'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Inter:wght@300..700&family=Caveat:wght@400;500&display=swap'
 ];
 
 /* INSTALL — pre-cache the shell */
@@ -52,6 +53,9 @@ self.addEventListener('fetch', evt => {
     url.hostname.includes('gstatic.com') ||
     url.hostname.includes('metered.live') ||
     url.hostname.includes('metered.ca') ||
+    // live weather + geocoding must never be served stale; map tiles are huge
+    url.hostname.includes('open-meteo.com') ||
+    url.hostname.includes('cartocdn.com') ||
     url.protocol === 'wss:' || url.protocol === 'ws:' ||
     req.method !== 'GET'
   ) {
