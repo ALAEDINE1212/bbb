@@ -5857,6 +5857,419 @@
       box-shadow: 0 0 0 4px rgba(238, 107, 134, .17)
     }
 
+    /* ══ Cycle ring — the Flo-style dial at the top of the Mood screen ══
+       Phase colour is driven by one variable, --ph, set on .cycle-ring-card
+       from JS (data-phase). Everything else — glow, arc, dot, pills —
+       inherits it, so a phase change is a single attribute write. */
+    .cycle-ring-card {
+      --ph: var(--rose);
+      --ph-g: rgba(238, 107, 134, .16);
+      position: relative;
+      margin-bottom: 18px;
+      padding: 26px 22px 22px;
+      border-radius: var(--rl);
+      overflow: hidden;
+      background: var(--glass);
+      -webkit-backdrop-filter: var(--blur);
+      backdrop-filter: var(--blur);
+      border: 1px solid var(--glass-bd);
+      box-shadow: var(--sh-glass);
+      transition: border-color var(--t) var(--ease)
+    }
+
+    .cycle-ring-card[data-phase="Menstrual"] {
+      --ph: #ee6b86;
+      --ph-g: rgba(238, 107, 134, .18)
+    }
+
+    .cycle-ring-card[data-phase="Follicular"] {
+      --ph: #7fcde0;
+      --ph-g: rgba(127, 205, 224, .16)
+    }
+
+    .cycle-ring-card[data-phase="Ovulatory"] {
+      --ph: #d4b48a;
+      --ph-g: rgba(212, 180, 138, .18)
+    }
+
+    .cycle-ring-card[data-phase="Luteal"] {
+      --ph: #c8a8e0;
+      --ph-g: rgba(200, 168, 224, .16)
+    }
+
+    /* Phase-tinted bloom behind the dial. */
+    .cycle-ring-card::before {
+      content: '';
+      position: absolute;
+      top: -40%;
+      left: 50%;
+      width: 320px;
+      height: 320px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--ph-g) 0%, transparent 68%);
+      pointer-events: none;
+      transition: background var(--t-slow) var(--ease)
+    }
+
+    .cycle-ring-wrap {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center
+    }
+
+    .cycle-ring-svg {
+      width: min(232px, 62vw);
+      height: auto;
+      overflow: visible;
+      transform: rotate(-90deg)
+    }
+
+    .cycle-ring-svg circle {
+      fill: none;
+      stroke-linecap: round
+    }
+
+    .cr-track {
+      stroke: rgba(255, 255, 255, .07);
+      stroke-width: 11
+    }
+
+    /* Period days and the fertile window sit under the progress arc as
+       faint reference bands, the way a paper cycle chart marks them. */
+    .cr-band {
+      stroke-width: 5;
+      opacity: .85;
+      transition: stroke-dasharray var(--t-slow) var(--ease), stroke-dashoffset var(--t-slow) var(--ease)
+    }
+
+    .cr-band-period {
+      stroke: #ee6b86
+    }
+
+    .cr-band-fertile {
+      stroke: #d4b48a
+    }
+
+    .cr-progress {
+      stroke: var(--ph);
+      stroke-width: 11;
+      filter: drop-shadow(0 0 10px var(--ph));
+      transition: stroke-dasharray var(--t-slow) var(--ease), stroke var(--t-slow) var(--ease)
+    }
+
+    .cr-dot {
+      fill: #fff;
+      stroke: var(--ph);
+      stroke-width: 4;
+      filter: drop-shadow(0 0 8px var(--ph));
+      transition: transform var(--t-slow) var(--ease), stroke var(--t-slow) var(--ease);
+      transform-origin: 100px 100px
+    }
+
+    /* Counter-rotated so the text sits upright inside the -90deg dial. */
+    .cycle-ring-centre {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      text-align: center;
+      pointer-events: none
+    }
+
+    .crc-day {
+      font-family: var(--fd);
+      font-size: 2.9rem;
+      line-height: 1;
+      font-weight: 400;
+      font-variation-settings: "opsz" 40;
+      color: var(--tx);
+      letter-spacing: -.02em
+    }
+
+    .crc-day small {
+      display: block;
+      font-family: var(--fb);
+      font-size: .68rem;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--tx4);
+      margin-bottom: 5px
+    }
+
+    .crc-phase {
+      margin-top: 9px;
+      font-size: .8rem;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      color: var(--ph);
+      transition: color var(--t-slow) var(--ease)
+    }
+
+    .crc-of {
+      margin-top: 2px;
+      font-size: .7rem;
+      color: var(--tx4)
+    }
+
+    /* Empty state: the dial is hidden until a start date exists. */
+    .cycle-ring-empty {
+      position: relative;
+      z-index: 1;
+      display: none;
+      text-align: center;
+      padding: 14px 6px 4px
+    }
+
+    .cycle-ring-card.unset .cycle-ring-wrap {
+      display: none
+    }
+
+    .cycle-ring-card.unset .cycle-ring-empty {
+      display: block
+    }
+
+    .cycle-ring-empty .cre-ic {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 12px;
+      border-radius: 18px;
+      color: #fff;
+      background: linear-gradient(135deg, rgba(180, 137, 216, .34), rgba(238, 107, 134, .24));
+      border: 1px solid rgba(255, 255, 255, .12)
+    }
+
+    .cycle-ring-empty p {
+      font-size: .84rem;
+      color: var(--tx3);
+      line-height: 1.6;
+      max-width: 34ch;
+      margin: 0 auto
+    }
+
+    /* ── Countdown strip under the dial ── */
+    .cycle-next {
+      position: relative;
+      z-index: 1;
+      margin-top: 18px;
+      text-align: center
+    }
+
+    .cycle-next-main {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 16px;
+      border-radius: var(--r-pill);
+      border: 1px solid var(--ph);
+      background: var(--ph-g);
+      color: var(--tx);
+      font-size: .84rem;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      transition: border-color var(--t-slow) var(--ease), background var(--t-slow) var(--ease)
+    }
+
+    .cycle-next-main svg.lucide {
+      width: 15px;
+      height: 15px;
+      color: var(--ph)
+    }
+
+    .cycle-next-sub {
+      margin-top: 8px;
+      font-size: .76rem;
+      color: var(--tx3);
+      line-height: 1.5
+    }
+
+    /* ── Phase legend ── */
+    .cycle-legend {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, .07)
+    }
+
+    .cycle-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .68rem;
+      color: var(--tx4);
+      letter-spacing: .01em
+    }
+
+    /* The dot carries the colour; the label stays quiet. Scoped under
+       .cycle-legend so it outranks the `.cycle-legend span` colour above. */
+    .cycle-legend i {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0
+    }
+
+    .cycle-legend .cl-period i {
+      background: #ee6b86;
+      box-shadow: 0 0 8px rgba(238, 107, 134, .7)
+    }
+
+    .cycle-legend .cl-fertile i {
+      background: #d4b48a;
+      box-shadow: 0 0 8px rgba(212, 180, 138, .7)
+    }
+
+    /* ── Symptom logger ── */
+    .sym-card {
+      margin-bottom: 18px
+    }
+
+    .sym-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 13px
+    }
+
+    .sym-date {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .74rem;
+      color: var(--tx3)
+    }
+
+    .sym-date input[type=date] {
+      width: auto;
+      padding: 6px 11px;
+      font-size: .78rem;
+      border-radius: 10px
+    }
+
+    .sym-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px
+    }
+
+    .sym-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: var(--r-pill);
+      border: 1px solid var(--glass-bd);
+      background: rgba(255, 255, 255, .045);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+      backdrop-filter: blur(14px) saturate(160%);
+      color: var(--tx2);
+      font-family: var(--fb);
+      font-size: .79rem;
+      font-weight: 500;
+      letter-spacing: -.01em;
+      text-align: left;
+      /* One line always: a label that wrapped would make its whole grid row
+         taller than the rows above and below it. */
+      white-space: nowrap;
+      overflow: hidden;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform var(--t-fast) var(--ease-pop), background var(--t-fast) var(--ease),
+        border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+        box-shadow var(--t-fast) var(--ease)
+    }
+
+    .sym-pill .se {
+      font-size: 1rem;
+      line-height: 1;
+      filter: saturate(1.1)
+    }
+
+    .sym-pill:hover {
+      background: rgba(255, 255, 255, .08);
+      border-color: var(--bhi);
+      color: var(--tx);
+      transform: translateY(-1px)
+    }
+
+    .sym-pill:active {
+      transform: scale(.96)
+    }
+
+    .sym-pill.on {
+      background: linear-gradient(135deg, rgba(238, 107, 134, .26), rgba(180, 137, 216, .2));
+      border-color: var(--bhi);
+      color: var(--tx);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 6px 20px rgba(238, 107, 134, .22)
+    }
+
+    .sym-pill:focus-visible {
+      outline: none;
+      box-shadow: var(--ring)
+    }
+
+    .sym-status {
+      margin-top: 11px;
+      font-size: .74rem;
+      color: var(--tx4);
+      min-height: 1.1em;
+      transition: color var(--t-fast) var(--ease)
+    }
+
+    .sym-status.ok {
+      color: var(--mood-calm)
+    }
+
+    /* ── Config row inside the collapsible settings card ── */
+    .cycle-cfg-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px
+    }
+
+    .cycle-cfg-row .fg {
+      margin-top: 12px;
+      margin-bottom: 0
+    }
+
+    @media (max-width: 560px) {
+      .cycle-ring-card {
+        padding: 22px 16px 18px
+      }
+
+      .crc-day {
+        font-size: 2.5rem
+      }
+
+      .sym-grid {
+        grid-template-columns: repeat(auto-fill, minmax(124px, 1fr))
+      }
+
+      .cycle-cfg-row {
+        grid-template-columns: 1fr
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .cr-band,
+      .cr-progress,
+      .cr-dot {
+        transition: none
+      }
+    }
+
     @media (max-width: 768px) {
       .ai-panel {
         right: 10px;
@@ -6216,6 +6629,38 @@
     <section class="sec" id="s-mood">
       <div class="g2" style="align-items:start">
         <div>
+          <!-- CYCLE RING — phase dial. data-phase drives every colour below it. -->
+          <div class="cycle-ring-card unset" id="cycleRingCard" data-phase="Menstrual">
+            <div class="cycle-ring-wrap">
+              <svg class="cycle-ring-svg" viewBox="0 0 200 200" role="img" aria-labelledby="cycleRingLabel">
+                <title id="cycleRingLabel">Cycle progress dial</title>
+                <circle class="cr-track" cx="100" cy="100" r="84"></circle>
+                <circle class="cr-band cr-band-period" id="crBandPeriod" cx="100" cy="100" r="97"></circle>
+                <circle class="cr-band cr-band-fertile" id="crBandFertile" cx="100" cy="100" r="97"></circle>
+                <circle class="cr-progress" id="crProgress" cx="100" cy="100" r="84"></circle>
+                <circle class="cr-dot" id="crDot" cx="100" cy="16" r="7"></circle>
+              </svg>
+              <div class="cycle-ring-centre">
+                <div class="crc-day"><small>Day</small><span id="crDay">—</span></div>
+                <div class="crc-phase" id="crPhase">—</div>
+                <div class="crc-of" id="crOf"></div>
+              </div>
+            </div>
+            <div class="cycle-ring-empty">
+              <span class="cre-ic"><i data-lucide="moon"></i></span>
+              <p>Add the first day of your last period below and this dial will track the whole cycle
+                for you.</p>
+            </div>
+            <div class="cycle-next" id="cycleNext" style="display:none">
+              <span class="cycle-next-main" id="cycleNextMain"></span>
+              <div class="cycle-next-sub" id="cycleNextSub"></div>
+            </div>
+            <div class="cycle-legend" id="cycleLegend" style="display:none">
+              <span class="cl-period"><i></i>Period days</span>
+              <span class="cl-fertile"><i></i>Fertile window</span>
+            </div>
+          </div>
+
           <div class="panel" style="margin-bottom:18px">
             <!-- Mood notification banner (shown when today's mood missing) -->
             <div class="mood-notification" id="moodBanner">
@@ -6254,6 +6699,16 @@
             <div class="fg"><label>Mood word</label><input id="moTx" type="text" placeholder="happy, cozy, tired..." /></div>
             <button class="btn bp" id="moSub" style="margin-top:6px"><i data-lucide="check"></i>Save mood</button>
           </div>
+          <!-- SYMPTOM LOGGER — one tap per pill, saved straight away. -->
+          <div class="panel sym-card">
+            <div class="sym-head">
+              <div class="ptitle" style="margin-bottom:0"><span class="picon"><i data-lucide="heart-pulse"></i></span>How does your body feel?</div>
+              <label class="sym-date" for="symDate">Logging for<input id="symDate" type="date" /></label>
+            </div>
+            <div class="sym-grid" id="symGrid"></div>
+            <div class="sym-status" id="symStatus"></div>
+          </div>
+
           <div class="cycle-card" id="cycleCard">
             <button class="cycle-head" id="cycleToggle" type="button" aria-expanded="false" aria-controls="cycleBody">
               <span class="cycle-ic"><i data-lucide="moon"></i></span>
@@ -6261,15 +6716,19 @@
               <i data-lucide="chevron-down" class="cycle-chev"></i>
             </button>
             <div class="cycle-body" id="cycleBody">
-              <div class="fg"><label for="cycleStart">First day of last cycle</label><input id="cycleStart" type="date" /></div>
-              <div class="fg"><label for="cycleLen">Average cycle length (days)</label><input id="cycleLen" type="number" min="20" max="45" step="1" value="28" /></div>
+              <div class="fg"><label for="cycleStart">First day of last period</label><input id="cycleStart" type="date" /></div>
+              <div class="cycle-cfg-row">
+                <div class="fg"><label for="cycleLen">Cycle length (days)</label><input id="cycleLen" type="number" min="20" max="45" step="1" value="28" /></div>
+                <div class="fg"><label for="cyclePeriodLen">Period length (days)</label><input id="cyclePeriodLen" type="number" min="1" max="10" step="1" value="5" /></div>
+              </div>
               <div class="cycle-actions">
                 <button class="btn bg" id="cycleClear" type="button">Clear</button>
                 <button class="btn bp" id="cycleSave" type="button"><i data-lucide="check"></i>Save</button>
               </div>
               <span class="cycle-phase" id="cyclePhase" style="display:none"></span>
-              <p class="cycle-note">Kept privately with the rest of your app data and used only to make Lumi gentler.
-                Not medical advice.</p>
+              <p class="cycle-note">Predictions are simple calendar maths from these three numbers, so
+                they drift if a cycle runs long or short. Kept privately with the rest of your app data
+                and used only to make Lumi gentler. Not medical advice, and not contraception.</p>
             </div>
           </div>
 
@@ -8121,15 +8580,54 @@
       try { return localStorage.getItem('geminiKey') || ''; } catch (_) { return ''; }
     })();
 
-    /* ── Cycle tracking (new Firebase node: cycleTracking) ──────────── */
+    /* ── Cycle tracking (Firebase node: cycleTracking) ───────────────
+       Shape:
+         cycleTracking/config       { startDate, cycleLength, periodLength, updatedAt }
+         cycleTracking/logs/{date}  ["cramps", "cravings", …]
+       Older builds wrote { startDate, cycleLength } straight onto the root.
+       That is still read (and migrated once) so nobody loses a saved date,
+       and config is never written with set() on the ROOT — that would take
+       the symptom logs with it. */
     const cycRef = dr(db, 'cycleTracking');
-    let cycData = null;
+    const cycCfgRef = dr(db, 'cycleTracking/config');
+    const cycLogsRef = dr(db, 'cycleTracking/logs');
+    let cycData = null;     // resolved config
+    let cycLogs = {};       // { 'YYYY-MM-DD': [id, …] }
 
-    /* Everything date-related is computed here, in JS. The model is only
-       ever handed the finished sentence — it never does the arithmetic. */
+    const CYCLE_DEFAULT_LEN = 28;
+    const CYCLE_DEFAULT_PERIOD = 5;
+
+    /* One tap each. The emoji is the whole visual — no icon font to load. */
+    const SYMPTOMS = [
+      { id: 'cramps', e: '🩸', label: 'Cramps' },
+      { id: 'headache', e: '🤕', label: 'Headache' },
+      { id: 'cravings', e: '🍫', label: 'Cravings' },
+      { id: 'lowEnergy', e: '😴', label: 'Tired' },
+      { id: 'bloating', e: '🌊', label: 'Bloated' },
+      { id: 'tender', e: '💗', label: 'Tender' },
+      { id: 'irritable', e: '😤', label: 'Irritable' },
+      { id: 'anxious', e: '🌧️', label: 'Anxious' },
+      { id: 'glowing', e: '✨', label: 'Glowing' },
+      { id: 'cozy', e: '🛌', label: 'Cozy' },
+      { id: 'energised', e: '⚡', label: 'Energy' },
+      { id: 'calm', e: '🌿', label: 'Calm' }
+    ];
+    const SYM_LABEL = {};
+    SYMPTOMS.forEach(s => { SYM_LABEL[s.id] = s.e + ' ' + s.label; });
+
+    /* Everything date-related is computed here, in JS. Lumi is only ever
+       handed the finished sentence — she never does the arithmetic. */
     function cycleInfo(d, today) {
       if (!d || !d.startDate) return null;
-      const len = Math.min(45, Math.max(20, parseInt(d.cycleLength, 10) || 28));
+      const len = Math.min(45, Math.max(20, parseInt(d.cycleLength, 10) || CYCLE_DEFAULT_LEN));
+      const ovulation = len - 14;           // luteal phase is the stable ~14 days
+      /* However the number was typed in, the period is capped so it can never
+         reach the ovulation day — otherwise "Menstrual" would swallow the
+         Ovulatory phase and the dial would never leave day-one colours. On a
+         very short cycle this cap bites and Follicular has no room left; that
+         is the four-phase model running out of days, not a bug to paper over. */
+      const plen = Math.min(10, len - 10, ovulation - 1, Math.max(1,
+        parseInt(d.periodLength, 10) || CYCLE_DEFAULT_PERIOD));
       const start = new Date(d.startDate + 'T00:00:00');
       if (isNaN(start)) return null;
       const now = today ? new Date(today) : new Date();
@@ -8142,45 +8640,197 @@
       if (!isFinite(elapsed) || elapsed < 0) return null;
 
       const day = (elapsed % len) + 1;
-      const ovulation = len - 14;           // luteal phase is the stable ~14 days
+      /* Fertile window: the five days sperm can survive before ovulation, plus
+         the day after the egg is released. */
+      const fertileStart = Math.max(1, ovulation - 5);
+      const fertileEnd = Math.min(len, ovulation + 1);
+
       let phase;
-      if (day <= 5) phase = 'Menstrual';
+      if (day <= plen) phase = 'Menstrual';
       else if (day < ovulation - 1) phase = 'Follicular';
       else if (day <= ovulation + 1) phase = 'Ovulatory';
       else phase = 'Luteal';
 
+      const addDays = (d0, n) => { const x = new Date(d0); x.setDate(x.getDate() + n); return x; };
+      /* Turn a day-of-cycle into a real date in the cycle currently running. */
+      const dayToDate = n => {
+        const x = new Date(now);
+        x.setDate(x.getDate() + (n - day));
+        return x;
+      };
+      /* …and into the next occurrence from today, wrapping to next cycle. */
+      const nextOccurrence = n => {
+        const x = new Date(now);
+        x.setDate(x.getDate() + (n - day) + (n < day ? len : 0));
+        return x;
+      };
+
       const daysToNext = len - day + 1;
       const next = new Date(now);
       next.setDate(next.getDate() + daysToNext);
-      return { day, len, phase, daysToNext, nextDate: next, startDate: d.startDate };
+
+      return {
+        day, len, plen, phase,
+        startDate: d.startDate,
+        progress: day / len,
+        periodEndDay: plen,
+        periodEndDate: dayToDate(plen),
+        ovulationDay: ovulation,
+        ovulationDate: dayToDate(ovulation),
+        nextOvulationDate: nextOccurrence(ovulation),
+        daysToOvulation: (ovulation - day + (ovulation < day ? len : 0)),
+        fertileStartDay: fertileStart,
+        fertileEndDay: fertileEnd,
+        /* Dates of the window in the cycle currently running, and of the next
+           one still ahead. Once day is past fertileEnd the first pair is in the
+           past, so anything phrased as "upcoming" has to use the second. */
+        fertileStartDate: dayToDate(fertileStart),
+        fertileEndDate: dayToDate(fertileEnd),
+        nextFertileStartDate: nextOccurrence(fertileStart),
+        nextFertileEndDate: addDays(nextOccurrence(fertileStart), fertileEnd - fertileStart),
+        daysToFertile: (fertileStart - day + (fertileStart < day ? len : 0)),
+        inFertileWindow: day >= fertileStart && day <= fertileEnd,
+        daysToNext, nextDate: next,
+        daysLeftOfPeriod: day <= plen ? plen - day + 1 : 0
+      };
+    }
+
+    /* "in 0 days" reads like a bug; say it the way a person would. */
+    const inDays = n => n === 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+
+    const PHASE_NOTE = {
+      Menstrual: 'Rest is the whole job right now — warmth, water, nothing demanding.',
+      Follicular: 'Energy climbs through this stretch. Good days to start things.',
+      Ovulatory: 'Usually the brightest, most social few days of the cycle.',
+      Luteal: 'Energy winds down and moods get louder. Be generous with yourself.'
+    };
+
+    /* ── The ring ──────────────────────────────────────────────────── */
+    const RING_R = 84;          // progress arc
+    const RING_BAND_R = 97;     // the thin reference ring outside it
+    const RING_C = 2 * Math.PI * RING_R;
+    const RING_BAND_C = 2 * Math.PI * RING_BAND_R;
+
+    /* An arc from fraction a to fraction b of the circle. The SVG is rotated
+       -90deg in CSS, so fraction 0 is the top. The period and fertile bands ride
+       a wider circle than the progress arc, otherwise the arc paints straight
+       over them and they are never seen. */
+    function setArc(el, a, b, c) {
+      if (!el) return;
+      const C = c || RING_C;
+      const span = Math.max(0, Math.min(1, b) - Math.max(0, a));
+      el.style.strokeDasharray = (span * C).toFixed(2) + ' ' + C.toFixed(2);
+      el.style.strokeDashoffset = (-a * C).toFixed(2);
     }
 
     function renderCycle() {
       const info = cycleInfo(cycData);
+      const card = $('cycleRingCard');
       const sum = $('cycleSummary');
       const pill = $('cyclePhase');
-      if (!sum) return;
+
+      if (sum) {
+        sum.textContent = info ? 'Day ' + info.day + ' of ' + info.len + ' · ' + info.phase :
+          (cycData && cycData.startDate ? 'Start date is in the future' : 'Not set yet');
+      }
+      if (pill) {
+        if (info) {
+          pill.style.display = 'inline-flex';
+          pill.innerHTML = '<i data-lucide="moon"></i>' + info.phase + ' · next in ' +
+            info.daysToNext + ' day' + (info.daysToNext === 1 ? '' : 's');
+        } else {
+          pill.style.display = 'none';
+        }
+      }
+
+      if (!card) { if (window.refreshIcons) window.refreshIcons(); return; }
+
       if (!info) {
-        sum.textContent = cycData && cycData.startDate ? 'Start date is in the future' : 'Not set yet';
-        if (pill) pill.style.display = 'none';
+        card.classList.add('unset');
+        $('cycleNext').style.display = 'none';
+        $('cycleLegend').style.display = 'none';
+        if (window.refreshIcons) window.refreshIcons();
         return;
       }
-      sum.textContent = 'Day ' + info.day + ' of ' + info.len + ' · ' + info.phase;
-      if (pill) {
-        pill.style.display = 'inline-flex';
-        pill.innerHTML = '<i data-lucide="moon"></i>' + info.phase + ' · next in ' +
-          info.daysToNext + ' day' + (info.daysToNext === 1 ? '' : 's');
-        if (window.refreshIcons) window.refreshIcons();
+
+      card.classList.remove('unset');
+      card.dataset.phase = info.phase;
+
+      setArc($('crBandPeriod'), 0, info.plen / info.len, RING_BAND_C);
+      setArc($('crBandFertile'), (info.fertileStartDay - 1) / info.len, info.fertileEndDay / info.len, RING_BAND_C);
+      setArc($('crProgress'), 0, info.progress);
+      $('crDot').style.transform = 'rotate(' + (info.progress * 360).toFixed(2) + 'deg)';
+
+      $('crDay').textContent = info.day;
+      $('crPhase').textContent = info.phase;
+      $('crOf').textContent = 'of ' + info.len + ' days';
+
+      /* Headline picks whichever milestone is genuinely next. */
+      let main, icon;
+      if (info.daysLeftOfPeriod > 0) {
+        icon = 'droplet';
+        main = info.daysLeftOfPeriod === 1 ? 'Last day of your period' :
+          info.daysLeftOfPeriod + ' days of your period left';
+      } else if (info.inFertileWindow) {
+        icon = 'sparkles';
+        main = info.day === info.ovulationDay ? 'Ovulation day' :
+          'Fertile window · ends ' + inDays(info.fertileEndDay - info.day);
+      } else if (info.daysToFertile < info.daysToNext) {
+        icon = 'sparkles';
+        main = 'Fertile window starts ' + inDays(info.daysToFertile);
+      } else {
+        icon = 'calendar-heart';
+        main = 'Next period ' + inDays(info.daysToNext);
       }
+      $('cycleNextMain').innerHTML = '<i data-lucide="' + icon + '"></i>' + main;
+
+      /* The headline may already be the period countdown; in that case the line
+         under it only has to supply the date, not say it all over again. */
+      const sub = [icon === 'calendar-heart' ?
+        'Around ' + nd(info.nextDate) :
+        'Next period ' + inDays(info.daysToNext) + ' (' + nd(info.nextDate) + ')'];
+      /* Show the window she is in, or the next one — never the one behind us. */
+      const fs = info.inFertileWindow ? info.fertileStartDate : info.nextFertileStartDate;
+      const fe = info.inFertileWindow ? info.fertileEndDate : info.nextFertileEndDate;
+      sub.push('Ovulation around ' + nd(info.daysToOvulation === 0 ? info.ovulationDate : info.nextOvulationDate) +
+        ' · fertile ' + nd(fs) + ' – ' + nd(fe));
+      sub.push(PHASE_NOTE[info.phase] || '');
+      $('cycleNextSub').innerHTML = sub.filter(Boolean).join('<br>');
+
+      $('cycleNext').style.display = '';
+      $('cycleLegend').style.display = '';
+      if (window.refreshIcons) window.refreshIcons();
     }
 
+    /* Config listener. Reads config, falling back to the legacy flat root, and
+       migrates the legacy shape across exactly once. */
+    let cycMigrated = false;
     onValue(cycRef, snap => {
-      cycData = snap.val() || null;
+      const raw = snap.val() || null;
+      const legacy = raw && !raw.config && raw.startDate ? raw : null;
+      cycData = raw ? (raw.config || legacy) : null;
+
+      if (legacy && !cycMigrated) {
+        cycMigrated = true;
+        set(cycCfgRef, {
+          startDate: legacy.startDate,
+          cycleLength: legacy.cycleLength || CYCLE_DEFAULT_LEN,
+          periodLength: legacy.periodLength || CYCLE_DEFAULT_PERIOD,
+          updatedAt: legacy.updatedAt || Date.now()
+        }).catch(() => {});
+      }
+
       if ($('cycleStart')) {
         $('cycleStart').value = (cycData && cycData.startDate) || '';
-        $('cycleLen').value = (cycData && cycData.cycleLength) || 28;
+        $('cycleLen').value = (cycData && cycData.cycleLength) || CYCLE_DEFAULT_LEN;
+        $('cyclePeriodLen').value = (cycData && cycData.periodLength) || CYCLE_DEFAULT_PERIOD;
       }
       renderCycle();
+    });
+
+    onValue(cycLogsRef, snap => {
+      cycLogs = snap.val() || {};
+      renderSymptoms();
     });
 
     if ($('cycleToggle')) {
@@ -8193,18 +8843,95 @@
       $('cycleSave').addEventListener('click', async () => {
         const startDate = $('cycleStart').value;
         if (!startDate) return;
-        const cycleLength = Math.min(45, Math.max(20, parseInt($('cycleLen').value, 10) || 28));
-        await set(cycRef, { startDate, cycleLength, updatedAt: Date.now() });
+        const cycleLength = Math.min(45, Math.max(20, parseInt($('cycleLen').value, 10) || CYCLE_DEFAULT_LEN));
+        const periodLength = Math.min(10, cycleLength - 10, Math.max(1,
+          parseInt($('cyclePeriodLen').value, 10) || CYCLE_DEFAULT_PERIOD));
+        /* set() on config only — the logs node sits beside it and must survive. */
+        await set(cycCfgRef, { startDate, cycleLength, periodLength, updatedAt: Date.now() });
         $('cycleCard').classList.remove('open');
         $('cycleToggle').setAttribute('aria-expanded', 'false');
         hearts();
       });
 
       $('cycleClear').addEventListener('click', async () => {
-        if (!confirm('Clear the saved cycle date?')) return;
-        await remove(cycRef);
+        if (!confirm('Clear the saved cycle dates? Your logged symptoms are kept.')) return;
+        await remove(cycCfgRef);
+        /* Legacy installs also have the fields loose on the root; clear those
+           too, one by one, so the logs node underneath is left alone. */
+        await update(cycRef, { startDate: null, cycleLength: null, periodLength: null, updatedAt: null })
+          .catch(() => {});
+        cycMigrated = false;
         $('cycleStart').value = '';
-        $('cycleLen').value = 28;
+        $('cycleLen').value = CYCLE_DEFAULT_LEN;
+        $('cyclePeriodLen').value = CYCLE_DEFAULT_PERIOD;
+      });
+    }
+
+    /* ── Symptom logging ───────────────────────────────────────────── */
+    const symDate = () => ($('symDate') && $('symDate').value) || iso();
+
+    function renderSymptoms() {
+      const grid = $('symGrid');
+      if (!grid) return;
+      const on = cycLogs[symDate()] || [];
+      if (!grid.childElementCount) {
+        grid.innerHTML = SYMPTOMS.map(s =>
+          '<button class="sym-pill" type="button" data-sym="' + s.id + '" aria-pressed="false">' +
+          '<span class="se" aria-hidden="true">' + s.e + '</span>' + s.label + '</button>').join('');
+      }
+      grid.querySelectorAll('.sym-pill').forEach(b => {
+        const sel = on.indexOf(b.dataset.sym) !== -1;
+        b.classList.toggle('on', sel);
+        b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      });
+      const st = $('symStatus');
+      if (st && !st.dataset.busy) {
+        st.classList.remove('ok');
+        st.textContent = on.length ?
+          on.length + ' logged for this day — tap to remove' :
+          'Tap anything you are feeling. It saves on its own.';
+      }
+    }
+
+    if ($('symGrid')) {
+      if ($('symDate') && !$('symDate').value) $('symDate').value = iso();
+      renderSymptoms();
+      $('symDate').addEventListener('change', renderSymptoms);
+
+      $('symGrid').addEventListener('click', async e => {
+        const b = e.target.closest('.sym-pill');
+        if (!b || b.disabled) return;
+        const date = symDate();
+        const id = b.dataset.sym;
+        const cur = (cycLogs[date] || []).slice();
+        const at = cur.indexOf(id);
+        if (at === -1) cur.push(id); else cur.splice(at, 1);
+
+        /* Paint immediately, then write. The onValue listener re-renders from
+           the server value a moment later and corrects this if the write failed. */
+        cycLogs[date] = cur;
+        renderSymptoms();
+        const st = $('symStatus');
+        try {
+          b.disabled = true;
+          const ref = dr(db, 'cycleTracking/logs/' + date);
+          if (cur.length) await set(ref, cur); else await remove(ref);
+          if (st) {
+            st.dataset.busy = '1';
+            st.classList.add('ok');
+            st.textContent = 'Saved';
+            clearTimeout(st._t);
+            st._t = setTimeout(() => { delete st.dataset.busy; renderSymptoms(); }, 1400);
+          }
+        } catch (_) {
+          if (st) {
+            delete st.dataset.busy;
+            st.classList.remove('ok');
+            st.textContent = 'Could not save that — check your connection.';
+          }
+        } finally {
+          b.disabled = false;
+        }
       });
     }
 
@@ -8389,24 +9116,66 @@
         (caps.length ? fit(caps.map(c => '  - ' + clip(c, 140)), 2500) : '  (none of them are captioned)');
     }
 
-    /* ── 4. Exact current cycle status ──────────────────────────────── */
+    /* ── 4. Exact current cycle status, predictions and symptom logs ── */
     function cycleBlock() {
       const info = cycleInfo(cycData);
-      if (!info) {
-        return 'CYCLE — no start date is saved, so you have no cycle information at all. ' +
-          'Do not guess at one and do not imply you know where she is in her cycle.';
-      }
-      return 'CYCLE — already calculated for you; do NOT recompute or second-guess these numbers:\n' +
+      const head = info ?
+        'CYCLE — already calculated for you; do NOT recompute or second-guess any of these dates:\n' +
         '  - Whose: ' + CYCLE_OWNER + '\n' +
-        '  - Cycle start on record: ' + info.startDate + '\n' +
-        '  - Today is day ' + info.day + ' of an average ' + info.len + '-day cycle\n' +
-        '  - Current phase: ' + info.phase + '\n' +
-        '  - Next period expected in ' + info.daysToNext + ' day' + (info.daysToNext === 1 ? '' : 's') +
-        ' (around ' + nd(info.nextDate) + ')\n' +
-        '  Let this quietly shape your tone — gentler and low-demand in the Menstrual and late Luteal ' +
-        'phases, brighter around Follicular and Ovulatory. Only say it out loud if they raise it or if ' +
-        'it genuinely explains something they just said. Never open with it, never use it to dismiss a ' +
-        'real feeling ("that is just your hormones" is forbidden), and never give medical advice.';
+        '  - Settings on record: ' + info.len + '-day cycle, ' + info.plen + '-day period, ' +
+        'last period started ' + info.startDate + '\n' +
+        '  - Today is day ' + info.day + ' of ' + info.len + '\n' +
+        '  - Current phase: ' + info.phase + ' — ' + (PHASE_NOTE[info.phase] || '') + '\n' +
+        (info.daysLeftOfPeriod > 0 ?
+          '  - She is on her period: ' + info.daysLeftOfPeriod + ' day' +
+          (info.daysLeftOfPeriod === 1 ? '' : 's') + ' of it left (through ' + nd(info.periodEndDate) + ')\n' : '') +
+        '  - Next period: ' + inDays(info.daysToNext) + ' (around ' + nd(info.nextDate) + ')\n' +
+        '  - Ovulation: day ' + info.ovulationDay + ', ' + inDays(info.daysToOvulation) +
+        ' (around ' + nd(info.daysToOvulation === 0 ? info.ovulationDate : info.nextOvulationDate) + ')\n' +
+        '  - Fertile window: cycle days ' + info.fertileStartDay + '–' + info.fertileEndDay + ', ' +
+        (info.inFertileWindow ?
+          nd(info.fertileStartDate) + ' to ' + nd(info.fertileEndDate) + ' — she is inside it right now' :
+          'next one ' + nd(info.nextFertileStartDate) + ' to ' + nd(info.nextFertileEndDate) +
+          ', starting ' + inDays(info.daysToFertile)) + '\n' +
+        '  These are calendar predictions from three saved numbers, not observations. If she says her ' +
+        'body is doing something else, her body is right and the prediction is wrong.\n' :
+        'CYCLE — no start date is saved, so you have no cycle information and no predictions at all. ' +
+        'Do not guess at one and do not imply you know where she is in her cycle.\n';
+
+      /* Symptom pills she has tapped, newest first, with the cycle day each
+         one fell on so patterns are visible without any maths. */
+      const dates = Object.keys(cycLogs || {})
+        .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && (cycLogs[d] || []).length)
+        .sort((a, b) => b.localeCompare(a));
+
+      let symp;
+      if (!dates.length) {
+        symp = 'SYMPTOMS — nothing tapped in the body-symptom tracker yet.';
+      } else {
+        const lines = dates.map(d => {
+          const at = cycleInfo(cycData, d + 'T00:00:00');
+          return '  - ' + d + (at ? ' (cycle day ' + at.day + ', ' + at.phase + ')' : '') + ' — ' +
+            (cycLogs[d] || []).map(id => SYM_LABEL[id] || id).join(', ');
+        });
+        const tally = {};
+        dates.forEach(d => (cycLogs[d] || []).forEach(id => {
+          const n = SYM_LABEL[id] || id;
+          tally[n] = (tally[n] || 0) + 1;
+        }));
+        const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])
+          .slice(0, 5).map(n => n + ' x' + tally[n]).join(', ');
+        symp = 'SYMPTOMS — every day she has logged how her body feels, newest first. ' +
+          dates.length + ' day' + (dates.length === 1 ? '' : 's') + ' logged. Most common: ' + top + '.\n' +
+          fit(lines, 4000);
+      }
+
+      return head +
+        '  Let the phase quietly shape your tone — gentler and low-demand in the Menstrual and late ' +
+        'Luteal phases, brighter around Follicular and Ovulatory. Only say any of it out loud if they ' +
+        'raise it or if it genuinely explains something they just said. Never open with it, never use ' +
+        'it to dismiss a real feeling ("that is just your hormones" is forbidden), never give medical ' +
+        'advice, and never present the fertile window as contraception or as a way to conceive.\n\n' +
+        symp;
     }
 
     /* Every category, assembled into the one block Lumi always receives. */
@@ -8439,7 +9208,13 @@
       pull('places', bare(plData), v => { plData = v || {}; });
       pull('photos', bare(phData), v => { phData = v || {}; });
       pull('meetings', bare(aiMeetings), v => { aiMeetings = v || {}; });
-      pull('cycleTracking', cycData == null, v => { cycData = v || null; });
+      /* cycleTracking splits into config + logs; read the root once and take
+         both, falling back to the legacy flat shape for older data. */
+      pull('cycleTracking', cycData == null || bare(cycLogs), v => {
+        if (!v) return;
+        if (cycData == null) cycData = v.config || (v.startDate ? v : null);
+        if (bare(cycLogs)) cycLogs = v.logs || {};
+      });
       if (jobs.length) await Promise.all(jobs);
     }
 
@@ -8459,8 +9234,9 @@
           'go to, and keep "next time we are together" ideas separate from ones that work apart.';
       }
       if (sec === 'mood') {
-        return 'They are on the MOOD screen — the colour diary. This is the moment to be gentle and to ' +
-          'notice patterns across the months above, not only today.';
+        return 'They are on the MOOD screen — the colour diary, the cycle dial and the body-symptom ' +
+          'pills all live here. This is the moment to be gentle and to notice patterns across the ' +
+          'months and across the cycle above, not only today.';
       }
       if (sec === 'meetings') {
         return 'They are on the MEETINGS screen. Help them plan the next one or look back on these.';
