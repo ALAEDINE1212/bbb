@@ -6775,7 +6775,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-analytics.js";
-    import { getDatabase, ref as dr, push, onValue, set, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+    import { getDatabase, ref as dr, push, onValue, get, set, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
     import { getStorage, ref as sr, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
     import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-messaging.js";
 
@@ -8213,101 +8213,267 @@
     onValue(meRef, s => { aiMeetings = s.val() || {}; });
 
     /* ── Context builders ───────────────────────────────────────────── */
+    /* Lumi is handed the WHOLE universe on every single message, not just
+       whatever screen happens to be open. The onValue listeners above already
+       hold each Firebase node in full in memory (moods, mvData, sData, plData,
+       phData, aiMeetings, cycData) — no node is queried with a limit — so this
+       is a read of local state, not a round trip. hydrateUniverse() below only
+       covers the cold-open case where Lumi is asked something before the first
+       snapshot has landed. */
     const aiSection = () => {
       const el = document.querySelector('.sec.active');
       return el ? el.id.replace(/^s-/, '') : 'home';
     };
 
-    const recent = (obj, n, sort) => Object.values(obj || {})
-      .sort(sort || ((a, b) => (b.date || '').localeCompare(a.date || '')))
-      .slice(0, n);
+    /* The mood swatches carry their meaning in the button title; the database
+       only ever stores the hex. Map it back so Lumi reads "Love", not
+       "#e8607a". Keep in sync with #swatchRow. */
+    const MOOD_LABELS = {
+      '#f9d56e': 'Joyful', '#e8607a': 'Love', '#7ec8a0': 'Calm',
+      '#6bbfd4': 'Chill', '#7ab4e0': 'Sad', '#c49fd8': 'Dreamy',
+      '#d4956a': 'Cozy', '#8090a8': 'Stressed', '#6b6070': 'Low'
+    };
+    const moodName = hex => MOOD_LABELS[String(hex || '').trim().toLowerCase()] || 'custom colour';
 
-    function moodLines(n) {
-      return Object.entries(moods || {})
-        .sort(([a], [b]) => b.localeCompare(a))
-        .slice(0, n)
-        .map(([date, m]) => date + ': ' + (m.text || 'no word') + ' (' + (m.color || '') + ')');
+    const monthName = ym => {
+      const p = ym.split('-');
+      const d = new Date(+p[0], +p[1] - 1, 1);
+      return isNaN(d) ? ym : d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    };
+
+    const aiNum = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+    const clip = (s, n) => {
+      s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+      return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s;
+    };
+
+    /* The entire history is re-sent with every message, so each category gets a
+       character budget. Lines arrive in priority order (newest first, except the
+       story, where the beginning is the point); whatever does not fit is dropped
+       from the far end and counted, so Lumi knows a list is partial instead of
+       believing the missing entries never happened. */
+    function fit(lines, budget) {
+      const out = [];
+      let used = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (used + lines[i].length + 1 > budget) break;
+        out.push(lines[i]);
+        used += lines[i].length + 1;
+      }
+      const cut = lines.length - out.length;
+      if (cut > 0) out.push('  (' + cut + ' further entries exist but are not printed here — ' +
+        'say so rather than claiming they do not exist.)');
+      return out.join('\n');
     }
 
-    function sectionContext(sec) {
+    /* ── 1. Every mood ever logged, across every month ──────────────── */
+    function moodsBlock() {
+      const all = Object.entries(moods || {})
+        .filter(e => /^\d{4}-\d{2}-\d{2}$/.test(e[0]))
+        .sort((a, b) => b[0].localeCompare(a[0]));
+      if (!all.length) return 'MOODS — nothing has been coloured in yet.';
+
+      const tally = {};
+      all.forEach(e => { const n = moodName(e[1] && e[1].color); tally[n] = (tally[n] || 0) + 1; });
+      const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])
+        .slice(0, 5).map(n => n + ' x' + tally[n]).join(', ');
+
+      const byMonth = [];
+      let cur = null;
+      all.forEach(e => {
+        const date = e[0], m = e[1] || {};
+        const key = date.slice(0, 7);
+        if (!cur || cur.key !== key) { cur = { key: key, rows: [] }; byMonth.push(cur); }
+        cur.rows.push('  ' + date + ' — ' + moodName(m.color) + (m.text ? ': ' + clip(m.text, 160) : ''));
+      });
+
+      const lines = [];
+      byMonth.forEach(g => {
+        lines.push(monthName(g.key) + ' (' + g.rows.length + ' logged):');
+        g.rows.forEach(r => lines.push(r));
+      });
+
+      return 'MOODS — every day either of them has ever coloured in, newest month first. ' +
+        all.length + ' entries across ' + byMonth.length + ' month' + (byMonth.length === 1 ? '' : 's') +
+        ', from ' + all[all.length - 1][0] + ' to ' + all[0][0] + '. Most used: ' + top + '.\n' +
+        fit(lines, 9000);
+    }
+
+    /* ── 2. The whole movie list, every rating and every note ───────── */
+    function moviesBlock() {
+      const all = Object.values(mvData || {})
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      if (!all.length) return 'MOVIES & SHOWS — nothing logged yet.';
+
+      const avg = k => {
+        const v = all.map(m => aiNum(m[k])).filter(n => n !== null);
+        return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) + '/10 across ' + v.length : null;
+      };
+      const best = k => all.filter(m => aiNum(m[k]) !== null)
+        .sort((a, b) => aiNum(b[k]) - aiNum(a[k])).slice(0, 5)
+        .map(m => (m.title || 'Untitled') + ' ' + m[k]).join(', ');
+      const gap = m => Math.abs(aiNum(m.ratingA) - aiNum(m.ratingI));
+      const split = all.filter(m => aiNum(m.ratingA) !== null && aiNum(m.ratingI) !== null && gap(m) >= 3)
+        .sort((a, b) => gap(b) - gap(a))
+        .slice(0, 8)
+        .map(m => (m.title || 'Untitled') + ' (Alaedine ' + m.ratingA + ' / Ines ' + m.ratingI + ')');
+      const unrated = all.filter(m => aiNum(m.ratingA) === null && aiNum(m.ratingI) === null).length;
+
+      const lines = all.map(m => {
+        const r = [];
+        if (m.ratingA) r.push('Alaedine ' + m.ratingA + '/10');
+        if (m.ratingI) r.push('Ines ' + m.ratingI + '/10');
+        return '  - ' + (m.title || 'Untitled') + (m.year ? ' (' + m.year + ')' : '') +
+          (m.type ? ' [' + m.type + ']' : '') + (m.date ? ' · logged ' + m.date : '') +
+          (r.length ? ' — ' + r.join(', ') : ' — not rated yet') +
+          (m.note ? ' — note: ' + clip(m.note, 200) : '');
+      });
+
+      const stats = [
+        'Alaedine averages ' + (avg('ratingA') || 'nothing rated yet'),
+        'Ines averages ' + (avg('ratingI') || 'nothing rated yet'),
+        unrated ? unrated + ' title' + (unrated === 1 ? '' : 's') + ' still unrated' : ''
+      ].filter(Boolean).join(' · ');
+
+      return 'MOVIES & SHOWS — the complete list, ' + all.length + ' title' +
+        (all.length === 1 ? '' : 's') + ', newest first.\n' + stats + '.\n' +
+        (best('ratingA') ? 'Alaedine rated highest: ' + best('ratingA') + '.\n' : '') +
+        (best('ratingI') ? 'Ines rated highest: ' + best('ratingI') + '.\n' : '') +
+        (split.length ? 'They disagreed most on: ' + split.join(', ') + '.\n' : '') +
+        fit(lines, 9000);
+    }
+
+    /* ── 3a. Every place pinned on the map ──────────────────────────── */
+    function placesBlock() {
+      const all = Object.values(plData || {})
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      if (!all.length) return 'PLACES — nothing pinned on the map yet.';
+      const lines = all.map(p => '  - ' + (p.name || 'Unnamed') +
+        (p.date ? ' (' + p.date + ')' : '') +
+        (p.note ? ' — ' + clip(p.note, 220) : '') +
+        (p.photoCaption ? ' — photo: ' + clip(p.photoCaption, 90) : ''));
+      return 'PLACES — every spot they have pinned together, ' + all.length + ' in all, newest first.\n' +
+        fit(lines, 5000);
+    }
+
+    /* ── 3b. The full Our Story timeline ────────────────────────────── */
+    function storyBlock() {
+      const all = Object.values(sData || {})
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      if (!all.length) return 'OUR STORY — no memories written down yet.';
+      const lines = all.map(e => '  - ' + (e.date || 'undated') + ' — ' + (e.title || 'Untitled') +
+        (e.text ? ': ' + clip(e.text, 400) : '') +
+        (e.photoUrl ? ' [has a photo]' : ''));
+      return 'OUR STORY — their whole timeline, ' + all.length + ' moment' +
+        (all.length === 1 ? '' : 's') + ', oldest first (the order it happened in).\n' +
+        fit(lines, 9000);
+    }
+
+    /* ── 3c. Every time they have actually been in the same place ───── */
+    function meetingsBlock() {
+      const all = Object.values(aiMeetings || {})
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      if (!all.length) return 'MEETINGS — none logged yet.';
+      const lines = all.map(m => '  - ' + (m.date || 'undated') + ' — ' + (m.where || 'somewhere') +
+        (m.how ? ': ' + clip(m.how, 200) : ''));
+      return 'MEETINGS — every time they have been together in person, ' + all.length +
+        ' so far, newest first.\n' + fit(lines, 4000);
+    }
+
+    /* ── 3d. Photo captions (the images themselves are not visible) ─── */
+    function photosBlock() {
+      const total = Object.keys(phData || {}).length;
+      if (!total) return 'PHOTOS — none uploaded yet.';
+      const caps = Object.values(phData || {}).map(p => p && p.caption).filter(Boolean);
+      return 'PHOTOS — ' + total + ' in the gallery. You cannot see the images, only these captions:\n' +
+        (caps.length ? fit(caps.map(c => '  - ' + clip(c, 140)), 2500) : '  (none of them are captioned)');
+    }
+
+    /* ── 4. Exact current cycle status ──────────────────────────────── */
+    function cycleBlock() {
+      const info = cycleInfo(cycData);
+      if (!info) {
+        return 'CYCLE — no start date is saved, so you have no cycle information at all. ' +
+          'Do not guess at one and do not imply you know where she is in her cycle.';
+      }
+      return 'CYCLE — already calculated for you; do NOT recompute or second-guess these numbers:\n' +
+        '  - Whose: ' + CYCLE_OWNER + '\n' +
+        '  - Cycle start on record: ' + info.startDate + '\n' +
+        '  - Today is day ' + info.day + ' of an average ' + info.len + '-day cycle\n' +
+        '  - Current phase: ' + info.phase + '\n' +
+        '  - Next period expected in ' + info.daysToNext + ' day' + (info.daysToNext === 1 ? '' : 's') +
+        ' (around ' + nd(info.nextDate) + ')\n' +
+        '  Let this quietly shape your tone — gentler and low-demand in the Menstrual and late Luteal ' +
+        'phases, brighter around Follicular and Ovulatory. Only say it out loud if they raise it or if ' +
+        'it genuinely explains something they just said. Never open with it, never use it to dismiss a ' +
+        'real feeling ("that is just your hormones" is forbidden), and never give medical advice.';
+    }
+
+    /* Every category, assembled into the one block Lumi always receives. */
+    function universeState() {
+      return [
+        moodsBlock(), '',
+        moviesBlock(), '',
+        storyBlock(), '',
+        placesBlock(), '',
+        meetingsBlock(), '',
+        photosBlock(), '',
+        cycleBlock()
+      ].join('\n');
+    }
+
+    /* Cold-open safety net: if Lumi is asked something in the first moment after
+       load, a cache may still be empty because its onValue snapshot has not
+       arrived yet. One-shot get() fills only the empty ones; the listeners keep
+       them fresh from then on, so this normally does nothing and costs nothing. */
+    async function hydrateUniverse() {
+      const bare = o => !o || !Object.keys(o).length;
+      const jobs = [];
+      const pull = (path, empty, assign) => {
+        if (!empty) return;
+        jobs.push(get(dr(db, path)).then(s => assign(s.val())).catch(() => {}));
+      };
+      pull('moods', bare(moods), v => { moods = v || {}; });
+      pull('movies', bare(mvData), v => { mvData = v || {}; });
+      pull('storyEvents', bare(sData), v => { sData = v || {}; });
+      pull('places', bare(plData), v => { plData = v || {}; });
+      pull('photos', bare(phData), v => { phData = v || {}; });
+      pull('meetings', bare(aiMeetings), v => { aiMeetings = v || {}; });
+      pull('cycleTracking', cycData == null, v => { cycData = v || null; });
+      if (jobs.length) await Promise.all(jobs);
+    }
+
+    /* Which screen is open. The data itself now lives in the global block above,
+       so this only says where their attention is and what helps there. */
+    function sectionFocus(sec) {
       if (sec === 'movies') {
-        const list = recent(mvData, 25).map(m => {
-          const r = [];
-          if (m.ratingA) r.push('Alaedine ' + m.ratingA + '/10');
-          if (m.ratingI) r.push('Ines ' + m.ratingI + '/10');
-          return '- ' + (m.title || 'Untitled') + (m.year ? ' (' + m.year + ')' : '') +
-            (m.type ? ' [' + m.type + ']' : '') +
-            (r.length ? ' — ' + r.join(', ') : ' — not rated') +
-            (m.note ? ' — note: ' + m.note : '');
-        });
-        return 'THE MOVIES SCREEN IS OPEN. Everything they have watched together (newest first):\n' +
-          (list.join('\n') || '(nothing logged yet)') +
-          '\nUse their ratings to work out their taste. When you recommend something, say why it fits ' +
-          'based on what they scored highly, and never recommend a title already on this list.';
+        return 'They are on the MOVIES screen. Lean on the ratings above to read their taste — ' +
+          'and never recommend a title already on that list.';
       }
-
       if (sec === 'story') {
-        const list = recent(sData, 12, (a, b) => (a.date || '').localeCompare(b.date || ''))
-          .map(e => '- ' + (e.date || '?') + ' — ' + (e.title || 'Untitled') +
-            (e.text ? ': ' + String(e.text).slice(0, 220) : ''));
-        return 'THE OUR STORY SCREEN IS OPEN. Their timeline so far (oldest first):\n' +
-          (list.join('\n') || '(no memories yet)') +
-          '\nHelp them put memories into words, or draft a short entry for a moment they describe. ' +
-          'Write in their voice — plain and warm, not flowery.';
+        return 'They are on the OUR STORY screen. Help them put a memory into words, or draft a short ' +
+          'entry for a moment they describe. Write in their voice — plain and warm, not flowery.';
       }
-
       if (sec === 'places') {
-        const list = recent(plData, 20).map(p => '- ' + (p.name || 'Unnamed') +
-          (p.date ? ' (' + p.date + ')' : '') + (p.note ? ' — ' + p.note : ''));
-        return 'THE PLACES SCREEN IS OPEN. Places they have been together:\n' +
-          (list.join('\n') || '(nothing pinned yet)') +
-          '\nSuggest date ideas that fit the kind of places they already like. They are ' +
-          'long-distance, so separate "next time we are together" ideas from ones that work apart.';
+        return 'They are on the PLACES screen. Suggest ideas that fit the kind of places they already ' +
+          'go to, and keep "next time we are together" ideas separate from ones that work apart.';
       }
-
       if (sec === 'mood') {
-        const info = cycleInfo(cycData);
-        const lines = moodLines(14);
-        let out = 'THE MOOD SCREEN IS OPEN. Their mood diary (newest first):\n' +
-          (lines.join('\n') || '(nothing logged yet)');
-        if (info) {
-          out += '\n\nCYCLE (already calculated for you — do NOT recompute or second-guess these numbers):\n' +
-            '- Whose: ' + CYCLE_OWNER + '\n' +
-            '- Today is day ' + info.day + ' of an average ' + info.len + '-day cycle\n' +
-            '- Current phase: ' + info.phase + '\n' +
-            '- Next period expected in ' + info.daysToNext + ' day' + (info.daysToNext === 1 ? '' : 's') +
-            ' (around ' + nd(info.nextDate) + ')\n' +
-            'Let this quietly shape your tone — more gentle and low-demand in the Menstrual and late ' +
-            'Luteal phases, brighter around Follicular and Ovulatory. Only mention the cycle out loud ' +
-            'if they raise it or if it genuinely explains something they just said. Never open with it, ' +
-            'never use it to dismiss a real feeling ("that is just your hormones" is forbidden), and ' +
-            'never give medical advice.';
-        } else {
-          out += '\n\nNo cycle start date is saved, so you have no cycle information. Do not guess at one.';
-        }
-        return out;
+        return 'They are on the MOOD screen — the colour diary. This is the moment to be gentle and to ' +
+          'notice patterns across the months above, not only today.';
       }
-
       if (sec === 'meetings') {
-        const list = recent(aiMeetings, 12).map(m => '- ' + (m.date || '?') + ' — ' +
-          (m.where || 'somewhere') + (m.how ? ': ' + m.how : ''));
-        return 'THE MEETINGS SCREEN IS OPEN. Every time they have met:\n' +
-          (list.join('\n') || '(none logged yet)') +
-          '\nHelp them plan the next one or look back on these.';
+        return 'They are on the MEETINGS screen. Help them plan the next one or look back on these.';
       }
-
       if (sec === 'together') {
-        return 'THE TOGETHER SCREEN IS OPEN — this is their video call / screen-share room, ' +
-          'where they watch things at the same time from different places. Keep answers short; ' +
-          'they are probably mid-call.';
+        return 'They are on the TOGETHER screen — their video call / screen-share room, where they ' +
+          'watch things at the same time from different places. Keep answers short; they are mid-call.';
       }
-
       if (sec === 'photos') {
-        return 'THE PHOTOS SCREEN IS OPEN. Help with captions or choosing favourites. ' +
-          'You cannot see the photos themselves.';
+        return 'They are on the PHOTOS screen. Help with captions or choosing favourites. You cannot ' +
+          'see the images themselves, only the captions above.';
       }
-
-      return 'THE HOME DASHBOARD IS OPEN — it shows their counters and the weather in both cities.';
+      return 'They are on the HOME dashboard — counters and the weather in both cities.';
     }
 
     function buildSystemPrompt() {
@@ -8330,14 +8496,30 @@
         'FACTS (already worked out for you — treat as true, never recalculate):',
         facts,
         '',
-        sectionContext(aiSection()),
+        '════ THEIR COMPLETE RECORD ════',
+        'This is everything in the app, not a sample and not only the screen they are looking at: ' +
+        'every mood across every month, every movie with every rating and note, the whole story ' +
+        'timeline, every place, every meeting, and the current cycle status. Treat it as your memory ' +
+        'of them. Use it to notice what they have not said out loud — a run of low days, a month ' +
+        'brighter than the one before, a place they keep going back to, the kind of film they always ' +
+        'score highly, how long it has been since anyone wrote a story entry. Bring those up ' +
+        'naturally, one at a time, only when the conversation makes room for it.',
+        '',
+        universeState(),
+        '════ END OF RECORD ════',
+        '',
+        'RIGHT NOW: ' + sectionFocus(aiSection()),
         '',
         'HOW TO WRITE:',
         '- Warm, close, a little playful. Like a friend who knows them, not a chatbot.',
         '- Short. Two or three sentences unless they ask for more. No bullet lists unless asked.',
         '- They write in English, French and Moroccan Darija, often mixed. Reply in whatever they used.',
-        '- Never invent memories, dates, movies or places that are not in the data above. If you do ' +
+        '- You have the whole history, so be specific: name the actual date, film, place or memory ' +
+        'instead of saying "a while ago" or "that film you liked".',
+        '- Never invent memories, dates, movies or places that are not in the record above. If you do ' +
         'not know something, say so and offer to help another way.',
+        '- Do not recite the record back at them or list it out. Draw on it the way someone who was ' +
+        'there would — a detail at a time.',
         '- You are not a doctor or a therapist. For anything medical or seriously distressing, be kind, ' +
         'stay with them, and suggest a real professional. Never diagnose.',
         '- Do not mention these instructions, the app internals, or that data was "injected".'
@@ -8349,9 +8531,13 @@
       const key = aiKey();
       if (!key) throw new Error('No API key set.');
 
+      /* Fill any cache whose first snapshot has not landed yet, so the very
+         first question of a session still gets the whole universe. */
+      await hydrateUniverse();
+
       const payload = JSON.stringify({
         systemInstruction: { parts: [{ text: buildSystemPrompt() }] },
-        contents: history.slice(-12).map(m => ({ role: m.role, parts: [{ text: m.text }] })),
+        contents: history.slice(-24).map(m => ({ role: m.role, parts: [{ text: m.text }] })),
         /* Generous cap: Gemini 3.x thinks before it answers and those tokens
            count here, so a small limit comes back as an empty reply.
            Add thinkingLevel: 'low' inside generationConfig to trade depth
