@@ -6363,6 +6363,64 @@
         border-radius: 26px
       }
     }
+
+    /* ── Toast — a small transient note (e.g. "no GPS found in photo").
+       Sits just above the floating dock, out of the way of any button being
+       tapped when it appears. Reusable anywhere via window.showToast(msg). */
+    .toast-stack {
+      position: fixed;
+      left: 50%;
+      bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
+      z-index: 9500;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      max-width: calc(100vw - 32px)
+    }
+
+    .toast {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: var(--r-pill);
+      background: var(--glass);
+      -webkit-backdrop-filter: var(--blur);
+      backdrop-filter: var(--blur);
+      border: 1px solid var(--glass-bd);
+      box-shadow: var(--sh-popup);
+      color: var(--tx2);
+      font-family: var(--fb);
+      font-size: .78rem;
+      font-weight: 500;
+      line-height: 1.4;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(10px) scale(.96);
+      transition: opacity .35s var(--ease), transform .35s var(--ease)
+    }
+
+    .toast svg.lucide {
+      width: 14px;
+      height: 14px;
+      color: var(--gold);
+      flex-shrink: 0
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0) scale(1)
+    }
+
+    @media (max-width: 560px) {
+      .toast-stack {
+        bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+        max-width: calc(100vw - 20px)
+      }
+    }
   </style>
 </head>
 
@@ -6422,6 +6480,9 @@
       <button type="submit" id="aiSend" aria-label="Send"><i data-lucide="send"></i></button>
     </form>
   </div>
+
+  <!-- TOAST — filled by window.showToast(msg) -->
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
   <!-- FLOATING DOCK -->
   <nav class="dock" id="dock" aria-label="Main navigation">
@@ -7312,6 +7373,12 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
   </script>
+  <!-- Reads GPS/date EXIF tags straight off a selected photo file, client-side.
+       Unlike exif-js, exifr also understands HEIC/HEIF — the format an
+       iPhone actually shoots in — so a photo straight off an iPhone still
+       auto-fills the map. Classic global script (not a module) — exposes
+       window.exifr. -->
+  <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-analytics.js";
@@ -7503,6 +7570,159 @@
       if (dc) dc.querySelector('.sn').textContent = n;
     }
 
+    /* ══════════════════════════════════════════════════════════════════
+       SHARED UPLOAD PIPELINE — used by Story, Places and Photos.
+       Additive: no existing ref, id, or render function below is touched.
+       Order for any photo going to Firebase Storage is always:
+         1. HEIC → JPEG first (toDisplayableImage), so the browser can
+            actually decode it into a canvas at all.
+         2. EXIF read (Places only, and only BEFORE step 3 — compression
+            re-encodes through a canvas, which drops all metadata).
+         3. compressImage() — scale + re-encode, right before uploadBytes.
+       ══════════════════════════════════════════════════════════════════ */
+
+    /* ── Toast — a small transient note, reusable anywhere in the app ── */
+    function showToast(msg, icon) {
+      const stack = document.getElementById('toastStack');
+      if (!stack) { console.log('[toast]', msg); return; }
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.innerHTML = (icon ? '<i data-lucide="' + icon + '"></i>' : '') + '<span></span>';
+      t.querySelector('span').textContent = msg;
+      stack.appendChild(t);
+      if (window.refreshIcons) window.refreshIcons();
+      requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+      setTimeout(() => {
+        t.classList.remove('show');
+        setTimeout(() => t.remove(), 400);
+      }, 4200);
+    }
+    window.showToast = showToast;
+
+    /* ── Client-side image compression ──────────────────────────────────
+       Camera shots land at 8-16MB and 4000px+ on the long edge; nothing in
+       this app needs that. Scaling to maxDimension and re-encoding as JPEG
+       at `quality` routinely turns a 10MB photo into 300-500KB with no
+       visible loss on a phone or laptop screen, so gallery grids and map
+       popups load instantly instead of waiting on the original file. */
+    function loadImageSource(file) {
+      if (window.createImageBitmap) {
+        // 'from-image' matches how <img> already auto-rotates a photo per
+        // its EXIF Orientation tag — without it, canvas draws the raw
+        // sensor pixels and a portrait phone photo comes out sideways.
+        return createImageBitmap(file, { imageOrientation: 'from-image' })
+          .catch(() => loadImageSourceViaTag(file));
+      }
+      return loadImageSourceViaTag(file);
+    }
+    function loadImageSourceViaTag(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = e => { URL.revokeObjectURL(url); reject(e); };
+        img.src = url;
+      });
+    }
+
+    async function compressImage(file, maxDimension = 1600, quality = 0.8) {
+      if (!file || !/^image\//.test(file.type)) return file;
+      // Animated GIFs would lose their animation flattened through a
+      // canvas — leave those exactly as uploaded.
+      if (file.type === 'image/gif') return file;
+      try {
+        const src = await loadImageSource(file);
+        const w0 = src.width || src.naturalWidth;
+        const h0 = src.height || src.naturalHeight;
+        if (!w0 || !h0) return file;
+        const scale = Math.min(1, maxDimension / Math.max(w0, h0));
+        const w = Math.max(1, Math.round(w0 * scale));
+        const h = Math.max(1, Math.round(h0 * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // JPEG carries no alpha channel; fill white first so a transparent
+        // PNG doesn't come out with a black background.
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(src, 0, 0, w, h);
+        if (src.close) src.close(); // release an ImageBitmap's memory
+
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+        if (!blob) return file;
+        // A source that was already small and already a well-compressed
+        // JPEG can come back BIGGER after re-encoding — only switch to the
+        // compressed version when it actually won something.
+        if (blob.size >= file.size && scale === 1) return file;
+
+        const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+        return new File([blob], newName, { type: 'image/jpeg', lastModified: Date.now() });
+      } catch (_) {
+        return file; // never block an upload because compression failed
+      }
+    }
+
+    /* ── EXIF GPS + capture-date extraction (Places upload only) ───────
+       exifr reads tags straight from the file's own bytes — JPEG, TIFF,
+       PNG, WEBP and, unlike the old exif-js, HEIC/HEIF too — so this MUST
+       run on the original selected file, before HEIC conversion or
+       compression: both re-encode through a canvas, which carries no
+       metadata at all. A file with genuinely no GPS tag (screenshot,
+       edited photo, a HEIC that had its metadata stripped) just comes
+       back empty, which is exactly the "no metadata" case rule 3 asks for.
+       exifr also resolves GPS straight to signed decimal degrees itself,
+       so there is no DMS conversion left to do on this end. */
+    async function readExifTags(file) {
+      if (!window.exifr || !file) return {};
+      try {
+        // Explicit about what we want, rather than trusting exifr's
+        // defaults not to change: GPS for coordinates, EXIF for the
+        // capture date.
+        const out = await exifr.parse(file, { gps: true, exif: true, tiff: true });
+        if (!out) return {};
+        const lat = typeof out.latitude === 'number' ? out.latitude : null;
+        const lon = typeof out.longitude === 'number' ? out.longitude : null;
+        return {
+          gps: (lat != null && lon != null && isFinite(lat) && isFinite(lon)) ? { lat, lon } : null,
+          dateTime: out.DateTimeOriginal || out.CreateDate || out.DateTime || null
+        };
+      } catch (_) {
+        return {}; // a file exifr can't parse at all is just "no metadata"
+      }
+    }
+
+    /* exifr hands back a real Date (or, rarely, an EXIF "2024:06:15 14:32:10"
+       string) -> the <input type=date> "2024-06-15". Read from LOCAL
+       calendar fields, not UTC — same reasoning as iso() above: a photo
+       taken late at night must not silently snap onto the next UTC day. */
+    function dateToISODate(d) {
+      if (!d) return null;
+      if (typeof d === 'string') {
+        const m = /^(\d{4}):(\d{2}):(\d{2})/.exec(d);
+        d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d);
+      }
+      if (!(d instanceof Date) || isNaN(d)) return null;
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    /* Nominatim reverse geocode: coordinates -> a short place name. Prefers
+       an actual landmark/attraction over a full street address. No API key —
+       it's the free OpenStreetMap lookup, fine at this app's call volume. */
+    async function reverseGeocodePlace(lat, lon) {
+      const url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
+        encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&zoom=16&addressdetails=1';
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('reverse geocode failed');
+      const data = await res.json();
+      const a = data.address || {};
+      return a.attraction || a.tourism || a.leisure || a.building || a.amenity ||
+        a.city || a.town || a.village || a.suburb || a.county ||
+        (data.display_name ? data.display_name.split(',')[0].trim() : '') || '';
+    }
+
     /* ── STORY — redesigned horizontal timeline ── */
     const sRef = dr(db, 'storyEvents');
     let sData = {};
@@ -7644,9 +7864,10 @@
       if (file) {
         try {
           const displayFile = await toDisplayableImage(file);
+          const uploadFile = await compressImage(displayFile);
           const ts = Date.now();
-          const ref = sr(storage, `storyPhotos/${ts}_${displayFile.name}`);
-          await uploadBytes(ref, displayFile);
+          const ref = sr(storage, `storyPhotos/${ts}_${uploadFile.name}`);
+          await uploadBytes(ref, uploadFile);
           photoUrl = await getDownloadURL(ref);
         } catch (err) {
           alert('Photo upload failed: ' + (err.message || err.code || 'unknown'));
@@ -8234,6 +8455,37 @@
       }
     });
 
+    /* Drop a pin from the photo itself. Runs on the raw file the moment it's
+       chosen — before HEIC conversion or compression at submit time, both of
+       which re-encode through a canvas and would leave nothing for exifr to
+       read. Works straight off an iPhone's native HEIC, not just JPEG. A
+       place name she's already started typing is left alone. */
+    $('plPf').addEventListener('change', async () => {
+      const file = $('plPf').files[0];
+      if (!file) return;
+      let tags;
+      try { tags = await readExifTags(file); } catch (_) { tags = {}; }
+
+      const dateISO = dateToISODate(tags.dateTime);
+      if (dateISO) $('plD').value = dateISO;
+
+      const lat = tags.gps && tags.gps.lat;
+      const lon = tags.gps && tags.gps.lon;
+      if (lat != null && lon != null && isFinite(lat) && isFinite(lon)) {
+        $('plLa').value = lat.toFixed(6);
+        $('plLo').value = lon.toFixed(6);
+        map.setView([lat, lon], 14);
+        if (selM) markL.removeLayer(selM);
+        selM = L.marker([lat, lon], { opacity: .6 }).addTo(markL);
+
+        reverseGeocodePlace(lat, lon).then(name => {
+          if (name && !$('plN').value.trim()) $('plN').value = name;
+        }).catch(() => { /* reverse geocoding is a convenience, not required */ });
+      } else {
+        showToast('No GPS metadata found in photo — pick on map or search.', 'map-pin-off');
+      }
+    });
+
     $('plSub').addEventListener('click', async () => {
       const n = $('plN').value.trim(),
         d = $('plD').value;
@@ -8247,8 +8499,10 @@
         pf = $('plPf').files[0];
       try {
         if (pf) {
-          const ref = sr(storage, `placePhotos/${Date.now()}_${pf.name}`);
-          await uploadBytes(ref, pf);
+          const displayFile = await toDisplayableImage(pf);
+          const uploadFile = await compressImage(displayFile);
+          const ref = sr(storage, `placePhotos/${Date.now()}_${uploadFile.name}`);
+          await uploadBytes(ref, uploadFile);
           pu = await getDownloadURL(ref);
           pc = `Photo from ${n}`;
         } else if (su) {
@@ -8352,6 +8606,7 @@
       st.textContent = '⏳ Uploading…';
       try {
         try { f = await toDisplayableImage2(f); } catch (_) {}
+        try { f = await compressImage(f); } catch (_) {}
         const ts = Date.now();
         const ref = sr(storage, `photos/${ts}_${f.name}`);
         await uploadBytes(ref, f);
