@@ -5897,6 +5897,81 @@
       --ph-g: rgba(200, 168, 224, .16)
     }
 
+    /* ── "Period started today" — the one-tap way to build real history ── */
+    .cycle-log-btn {
+      position: absolute;
+      z-index: 2;
+      top: 16px;
+      right: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 13px 7px 11px;
+      border-radius: var(--r-pill);
+      border: 1px solid rgba(238, 107, 134, .35);
+      background: rgba(238, 107, 134, .14);
+      color: var(--tx2);
+      font-family: var(--fb);
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: -.005em;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: all var(--t-fast) var(--ease)
+    }
+
+    .cycle-log-btn svg.lucide {
+      width: 13px;
+      height: 13px;
+      color: #ee6b86
+    }
+
+    .cycle-log-btn:hover {
+      background: rgba(238, 107, 134, .22);
+      border-color: rgba(238, 107, 134, .55);
+      transform: translateY(-1px)
+    }
+
+    .cycle-log-btn:active {
+      transform: scale(.96)
+    }
+
+    .cycle-log-btn.logged {
+      background: rgba(127, 205, 224, .14);
+      border-color: rgba(127, 205, 224, .35);
+      color: var(--tx2)
+    }
+
+    .cycle-log-btn.logged svg.lucide {
+      color: #7fcde0
+    }
+
+    .cycle-log-btn:disabled {
+      opacity: .6;
+      cursor: default;
+      transform: none
+    }
+
+    @media (max-width: 400px) {
+      .cycle-log-btn span {
+        display: none
+      }
+
+      .cycle-log-btn {
+        padding: 8px;
+        top: 14px;
+        right: 14px
+      }
+    }
+
+    /* ── Which numbers the prediction is actually built from ── */
+    .cycle-source {
+      margin-top: 10px;
+      font-size: .68rem;
+      color: var(--tx4);
+      letter-spacing: .01em
+    }
+
     /* Phase-tinted bloom behind the dial. */
     .cycle-ring-card::before {
       content: '';
@@ -6631,6 +6706,9 @@
         <div>
           <!-- CYCLE RING — phase dial. data-phase drives every colour below it. -->
           <div class="cycle-ring-card unset" id="cycleRingCard" data-phase="Menstrual">
+            <button class="cycle-log-btn" id="cycleLogToday" type="button">
+              <i data-lucide="droplet"></i><span id="cycleLogTodayTxt">Period started today</span>
+            </button>
             <div class="cycle-ring-wrap">
               <svg class="cycle-ring-svg" viewBox="0 0 200 200" role="img" aria-labelledby="cycleRingLabel">
                 <title id="cycleRingLabel">Cycle progress dial</title>
@@ -6654,6 +6732,7 @@
             <div class="cycle-next" id="cycleNext" style="display:none">
               <span class="cycle-next-main" id="cycleNextMain"></span>
               <div class="cycle-next-sub" id="cycleNextSub"></div>
+              <div class="cycle-source" id="cycleSourceNote"></div>
             </div>
             <div class="cycle-legend" id="cycleLegend" style="display:none">
               <span class="cl-period"><i></i>Period days</span>
@@ -6726,9 +6805,11 @@
                 <button class="btn bp" id="cycleSave" type="button"><i data-lucide="check"></i>Save</button>
               </div>
               <span class="cycle-phase" id="cyclePhase" style="display:none"></span>
-              <p class="cycle-note">Predictions are simple calendar maths from these three numbers, so
-                they drift if a cycle runs long or short. Kept privately with the rest of your app data
-                and used only to make Lumi gentler. Not medical advice, and not contraception.</p>
+              <p class="cycle-note">These three numbers are the starting point. Once you've tapped
+                "Period started today" a couple of times, the dial switches to your own measured
+                average instead — it self-corrects if a cycle runs long or short. Kept privately with
+                the rest of your app data and used only to make Lumi gentler. Not medical advice, and
+                not contraception.</p>
             </div>
           </div>
 
@@ -7264,7 +7345,12 @@
     const TRIP = "";
 
     const $ = id => document.getElementById(id);
-    const iso = () => new Date().toISOString().slice(0, 10);
+    /* toISOString() is UTC, so anyone west of Greenwich who logs something
+       late at night gets tomorrow's date — a mood, movie or symptom silently
+       filed under the wrong day. Shift by the browser's own offset first so
+       the slice reads the LOCAL calendar date instead. */
+    const iso = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 10); };
 
     function hearts() {
       const e = ['#ee6b86', '#f08aa0', '#b489d8', '#ff8fa8'];
@@ -8582,20 +8668,32 @@
 
     /* ── Cycle tracking (Firebase node: cycleTracking) ───────────────
        Shape:
-         cycleTracking/config       { startDate, cycleLength, periodLength, updatedAt }
-         cycleTracking/logs/{date}  ["cramps", "cravings", …]
+         cycleTracking/config        { startDate, cycleLength, periodLength, updatedAt }
+         cycleTracking/logs/{date}   ["cramps", "cravings", …]
+         cycleTracking/history/{date} <timestamp>   — confirmed period start dates
        Older builds wrote { startDate, cycleLength } straight onto the root.
        That is still read (and migrated once) so nobody loses a saved date,
        and config is never written with set() on the ROOT — that would take
-       the symptom logs with it. */
+       the symptom logs (or the history) with it. */
     const cycRef = dr(db, 'cycleTracking');
     const cycCfgRef = dr(db, 'cycleTracking/config');
     const cycLogsRef = dr(db, 'cycleTracking/logs');
-    let cycData = null;     // resolved config
+    const cycHistRef = dr(db, 'cycleTracking/history');
+    let cycData = null;     // resolved manual config, as typed into the settings form
     let cycLogs = {};       // { 'YYYY-MM-DD': [id, …] }
+    let cycHistory = {};    // { 'YYYY-MM-DD': <timestamp> } — confirmed period starts
 
     const CYCLE_DEFAULT_LEN = 28;
     const CYCLE_DEFAULT_PERIOD = 5;
+    /* A gap between two logged starts outside this range is almost certainly
+       a mis-tap (same day twice, or a stray date), not a real short/long
+       cycle, so it is dropped from the average rather than skewing it. */
+    const HIST_GAP_MIN = 15;
+    const HIST_GAP_MAX = 60;
+    /* How many of the most recent gaps feed the average — enough to smooth
+       out one unusual month, not so many that a cycle from a year ago still
+       drags on this month's prediction. */
+    const HIST_GAP_WINDOW = 6;
 
     /* One tap each. The emoji is the whole visual — no icon font to load. */
     const SYMPTOMS = [
@@ -8695,8 +8793,65 @@
       };
     }
 
+    /* Turn logged period-start dates into the cycle length actually running,
+       instead of trusting whatever number was typed into the settings form.
+       cycleInfo() stays pure math on a {startDate, cycleLength, periodLength}
+       object — this just decides which numbers go into that object before
+       it's called, and says where they came from so both the UI and Lumi can
+       be honest about it. */
+    function cycleConfig() {
+      const manual = cycData && cycData.startDate ? cycData : null;
+      const periodLength = (manual && manual.periodLength) || CYCLE_DEFAULT_PERIOD;
+
+      const dates = Object.keys(cycHistory || {})
+        .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort(); // ascending — oldest first
+
+      /* Fewer than two logged starts means zero gaps to measure, so there is
+         nothing to average yet: fall back to the manual settings. */
+      if (dates.length < 2) {
+        return manual ? { startDate: manual.startDate, cycleLength: manual.cycleLength, periodLength,
+          source: 'manual', historyCount: dates.length, cycleLens: [] } :
+          (dates.length === 1 ? { startDate: dates[0], cycleLength: CYCLE_DEFAULT_LEN, periodLength,
+            source: 'manual', historyCount: 1, cycleLens: [] } : null);
+      }
+
+      const recent = dates.slice(-(HIST_GAP_WINDOW + 1));
+      const gaps = [];
+      for (let i = 1; i < recent.length; i++) {
+        const a = new Date(recent[i - 1] + 'T00:00:00');
+        const b = new Date(recent[i] + 'T00:00:00');
+        const g = Math.round((b - a) / 86400000);
+        if (g >= HIST_GAP_MIN && g <= HIST_GAP_MAX) gaps.push(g);
+      }
+
+      /* Every gap got filtered out as an outlier (or there was only ever one
+         real gap and it was a mis-tap) — nothing trustworthy to average. */
+      if (!gaps.length) {
+        return manual ? { startDate: dates[dates.length - 1], cycleLength: manual.cycleLength, periodLength,
+          source: 'manual', historyCount: dates.length, cycleLens: [] } :
+          { startDate: dates[dates.length - 1], cycleLength: CYCLE_DEFAULT_LEN, periodLength,
+            source: 'manual', historyCount: dates.length, cycleLens: [] };
+      }
+
+      const avgLen = Math.min(45, Math.max(20, Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length)));
+      return {
+        startDate: dates[dates.length - 1],   // the most recently logged period start
+        cycleLength: avgLen,
+        periodLength,
+        source: 'history',
+        historyCount: dates.length,
+        cycleLens: gaps                       // the actual day-counts the average came from
+      };
+    }
+
     /* "in 0 days" reads like a bug; say it the way a person would. */
     const inDays = n => n === 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+
+    /* [28, 30, 29] -> "28, 30 and 29". Used wherever a run of cycle lengths
+       gets read out loud, to the UI and to Lumi alike. */
+    const joinList = arr => arr.length <= 1 ? (arr[0] || '') :
+      arr.slice(0, -1).join(', ') + ' and ' + arr[arr.length - 1];
 
     const PHASE_NOTE = {
       Menstrual: 'Rest is the whole job right now — warmth, water, nothing demanding.',
@@ -8724,14 +8879,26 @@
     }
 
     function renderCycle() {
-      const info = cycleInfo(cycData);
+      const eff = cycleConfig();
+      const info = cycleInfo(eff);
       const card = $('cycleRingCard');
       const sum = $('cycleSummary');
       const pill = $('cyclePhase');
 
       if (sum) {
         sum.textContent = info ? 'Day ' + info.day + ' of ' + info.len + ' · ' + info.phase :
-          (cycData && cycData.startDate ? 'Start date is in the future' : 'Not set yet');
+          (eff && eff.startDate ? 'Start date is in the future' : 'Not set yet');
+      }
+
+      /* The log-today button itself does not depend on any of the above — it
+         only cares whether today is already in the history, so update it
+         first and let every early return below still leave it correct. */
+      const logBtn = $('cycleLogToday');
+      if (logBtn) {
+        const loggedToday = !!cycHistory[iso()];
+        logBtn.classList.toggle('logged', loggedToday);
+        const txt = $('cycleLogTodayTxt');
+        if (txt) txt.textContent = loggedToday ? 'Logged for today' : 'Period started today';
       }
       if (pill) {
         if (info) {
@@ -8797,6 +8964,14 @@
       sub.push(PHASE_NOTE[info.phase] || '');
       $('cycleNextSub').innerHTML = sub.filter(Boolean).join('<br>');
 
+      const srcNote = $('cycleSourceNote');
+      if (srcNote) {
+        srcNote.textContent = eff.source === 'history' ?
+          'Based on your last ' + eff.cycleLens.length + ' logged cycle' +
+          (eff.cycleLens.length === 1 ? '' : 's') + ' (' + joinList(eff.cycleLens) + ' days)' :
+          'Based on your saved settings — log a period start to switch to your real average';
+      }
+
       $('cycleNext').style.display = '';
       $('cycleLegend').style.display = '';
       if (window.refreshIcons) window.refreshIcons();
@@ -8833,6 +9008,33 @@
       renderSymptoms();
     });
 
+    onValue(cycHistRef, snap => {
+      cycHistory = snap.val() || {};
+      renderCycle();
+    });
+
+    if ($('cycleLogToday')) {
+      $('cycleLogToday').addEventListener('click', async () => {
+        const btn = $('cycleLogToday');
+        const date = iso();
+        const ref = dr(db, 'cycleTracking/history/' + date);
+        btn.disabled = true;
+        try {
+          if (cycHistory[date]) {
+            if (!confirm('Remove today as a logged period start?')) return;
+            await remove(ref);
+          } else {
+            await set(ref, Date.now());
+            hearts();
+          }
+        } catch (_) {
+          alert('Could not save that — check your connection.');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
     if ($('cycleToggle')) {
       $('cycleToggle').addEventListener('click', () => {
         const card = $('cycleCard');
@@ -8854,7 +9056,8 @@
       });
 
       $('cycleClear').addEventListener('click', async () => {
-        if (!confirm('Clear the saved cycle dates? Your logged symptoms are kept.')) return;
+        if (!confirm('Clear the manual cycle settings? Your logged symptoms and period-start ' +
+          'history are kept, so predictions keep working from your history if you have any.')) return;
         await remove(cycCfgRef);
         /* Legacy installs also have the fields loose on the root; clear those
            too, one by one, so the logs node underneath is left alone. */
@@ -9118,11 +9321,24 @@
 
     /* ── 4. Exact current cycle status, predictions and symptom logs ── */
     function cycleBlock() {
-      const info = cycleInfo(cycData);
+      const eff = cycleConfig();
+      const info = cycleInfo(eff);
+      const sourceLine = !eff ? '' :
+        eff.source === 'history' ?
+          '  - Prediction source: HER OWN LOGGED HISTORY, not the manual settings. ' +
+          eff.historyCount + ' period start' + (eff.historyCount === 1 ? '' : 's') + ' logged. ' +
+          (eff.cycleLens.length ?
+            'Her last ' + eff.cycleLens.length + ' cycle' + (eff.cycleLens.length === 1 ? '' : 's') +
+            ' actually ran ' + joinList(eff.cycleLens) + ' days — that measured average (' + eff.cycleLength +
+            ' days) is what the numbers below use, not whatever cycle length is typed into her settings.\n' :
+            '\n') :
+          '  - Prediction source: her manual settings (she has not logged enough real period starts yet ' +
+          'for an actual average — ' + eff.historyCount + ' logged so far, at least 2 are needed).\n';
       const head = info ?
         'CYCLE — already calculated for you; do NOT recompute or second-guess any of these dates:\n' +
         '  - Whose: ' + CYCLE_OWNER + '\n' +
-        '  - Settings on record: ' + info.len + '-day cycle, ' + info.plen + '-day period, ' +
+        sourceLine +
+        '  - Settings in use: ' + info.len + '-day cycle, ' + info.plen + '-day period, ' +
         'last period started ' + info.startDate + '\n' +
         '  - Today is day ' + info.day + ' of ' + info.len + '\n' +
         '  - Current phase: ' + info.phase + ' — ' + (PHASE_NOTE[info.phase] || '') + '\n' +
@@ -9137,13 +9353,32 @@
           nd(info.fertileStartDate) + ' to ' + nd(info.fertileEndDate) + ' — she is inside it right now' :
           'next one ' + nd(info.nextFertileStartDate) + ' to ' + nd(info.nextFertileEndDate) +
           ', starting ' + inDays(info.daysToFertile)) + '\n' +
-        '  These are calendar predictions from three saved numbers, not observations. If she says her ' +
-        'body is doing something else, her body is right and the prediction is wrong.\n' :
-        'CYCLE — no start date is saved, so you have no cycle information and no predictions at all. ' +
-        'Do not guess at one and do not imply you know where she is in her cycle.\n';
+        '  These are calendar predictions, not observations — from her own logged history when there is ' +
+        'enough of it, otherwise from three typed-in numbers. If she says her body is doing something ' +
+        'else, her body is right and the prediction is wrong.\n' :
+        'CYCLE — no start date is saved and no period starts have been logged, so you have no cycle ' +
+        'information and no predictions at all. Do not guess at one and do not imply you know where ' +
+        'she is in her cycle.\n';
 
       /* Symptom pills she has tapped, newest first, with the cycle day each
-         one fell on so patterns are visible without any maths. */
+         one fell on so patterns are visible without any maths.
+
+         eff.startDate is whichever period start was logged most recently, so
+         it keeps moving forward — a symptom from before that date can't be
+         measured from it (cycleInfo() rejects a negative elapsed). Anchor
+         each symptom day to the logged start that was actually running when
+         it happened instead, so older entries stay tagged as new ones come in. */
+      const histAsc = Object.keys(cycHistory || {}).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+      function cycleDayAt(d) {
+        if (!eff) return null;
+        let anchor = eff.startDate;
+        for (let i = histAsc.length - 1; i >= 0; i--) {
+          if (histAsc[i] <= d) { anchor = histAsc[i]; break; }
+        }
+        return cycleInfo({ startDate: anchor, cycleLength: eff.cycleLength, periodLength: eff.periodLength },
+          d + 'T00:00:00');
+      }
+
       const dates = Object.keys(cycLogs || {})
         .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && (cycLogs[d] || []).length)
         .sort((a, b) => b.localeCompare(a));
@@ -9153,7 +9388,7 @@
         symp = 'SYMPTOMS — nothing tapped in the body-symptom tracker yet.';
       } else {
         const lines = dates.map(d => {
-          const at = cycleInfo(cycData, d + 'T00:00:00');
+          const at = cycleDayAt(d);
           return '  - ' + d + (at ? ' (cycle day ' + at.day + ', ' + at.phase + ')' : '') + ' — ' +
             (cycLogs[d] || []).map(id => SYM_LABEL[id] || id).join(', ');
         });
@@ -9208,12 +9443,14 @@
       pull('places', bare(plData), v => { plData = v || {}; });
       pull('photos', bare(phData), v => { phData = v || {}; });
       pull('meetings', bare(aiMeetings), v => { aiMeetings = v || {}; });
-      /* cycleTracking splits into config + logs; read the root once and take
-         both, falling back to the legacy flat shape for older data. */
-      pull('cycleTracking', cycData == null || bare(cycLogs), v => {
+      /* cycleTracking splits into config + logs + history; read the root once
+         and take all three, falling back to the legacy flat shape for older
+         data that never had a config sub-node. */
+      pull('cycleTracking', cycData == null || bare(cycLogs) || bare(cycHistory), v => {
         if (!v) return;
         if (cycData == null) cycData = v.config || (v.startDate ? v : null);
         if (bare(cycLogs)) cycLogs = v.logs || {};
+        if (bare(cycHistory)) cycHistory = v.history || {};
       });
       if (jobs.length) await Promise.all(jobs);
     }
