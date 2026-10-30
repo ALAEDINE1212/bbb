@@ -1,0 +1,100 @@
+/*
+ * Our Little Universe palette.
+ *  --accent-1  Us     (story, meetings, places)  — the app's heart pink
+ *  --accent-2  Media  (movies, photos)            — soft violet
+ *  --accent-3  Mood   (mood calendar)             — warm amber
+ */
+
+:root {
+  color-scheme: light;
+  --bg: #f2f2f5;
+  --card: #ffffff;
+  --card-2: #f4f3f6;
+  --track: #ebe8ee;
+  --line: #ebe9ee;
+  --ink: #17141a;
+  --ink-2: #6b6670;
+  --ink-3: #a19ca6;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-line: rgba(0, 0, 0, 0.06);
+  --scrim: rgba(10, 6, 14, 0.32);
+  --shadow-card: 0 1px 2px rgba(20, 10, 30, 0.04), 0 6px 20px -8px rgba(20, 10, 30, 0.1);
+  --shadow-float: 0 10px 30px -10px rgba(20, 10, 30, 0.25);
+  --sheen: rgba(255, 255, 255, 0.35);
+  --button: #17141a;
+  --button-ink: #ffffff;
+  --on-accent: #ffffff;
+  --selected: #2f7cf6;
+  --positive: #23a55a;
+  --caution: #e0912b;
+  --danger: #e5484d;
+  --accent-1: #e8557a;
+  --accent-1b: #f6a2b6;
+  --accent-2: #8b6cf0;
+  --accent-2b: #c3b2fa;
+  --accent-3: #f0a01e;
+  --accent-3b: #f9d27a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000;
+    --card: #1c1b1f;
+    --card-2: #2a292e;
+    --track: #2f2d33;
+    --line: #2c2a30;
+    --ink: #f5f3f7;
+    --ink-2: #a8a3ad;
+    --ink-3: #6f6a75;
+    --glass: rgba(36, 34, 40, 0.7);
+    --glass-line: rgba(255, 255, 255, 0.08);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+    --shadow-float: 0 12px 34px -10px rgba(0, 0, 0, 0.7);
+    --sheen: rgba(255, 255, 255, 0.18);
+    --button: #f5f3f7;
+    --button-ink: #111013;
+    --on-accent: #ffffff;
+    --selected: #3b8bff;
+    --positive: #34c46a;
+    --caution: #f0a43c;
+    --danger: #ff5b60;
+    --accent-1: #ff6b8e;
+    --accent-1b: #ffadc0;
+    --accent-2: #a088ff;
+    --accent-2b: #cdbfff;
+    --accent-3: #ffb52e;
+    --accent-3b: #ffd98a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --card: #1c1b1f;
+  --card-2: #2a292e;
+  --track: #2f2d33;
+  --line: #2c2a30;
+  --ink: #f5f3f7;
+  --ink-2: #a8a3ad;
+  --ink-3: #6f6a75;
+  --glass: rgba(36, 34, 40, 0.7);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+  --shadow-float: 0 12px 34px -10px rgba(0, 0, 0, 0.7);
+  --sheen: rgba(255, 255, 255, 0.18);
+  --button: #f5f3f7;
+  --button-ink: #111013;
+  --on-accent: #ffffff;
+  --selected: #3b8bff;
+  --positive: #34c46a;
+  --caution: #f0a43c;
+  --danger: #ff5b60;
+  --accent-1: #ff6b8e;
+  --accent-1b: #ffadc0;
+  --accent-2: #a088ff;
+  --accent-2b: #cdbfff;
+  --accent-3: #ffb52e;
+  --accent-3b: #ffd98a;
+}
