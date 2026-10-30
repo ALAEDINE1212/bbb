@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 export type Tab = "home" | "story" | "mood" | "places";
-export type SubScreen = "movies" | "meetings" | "photos";
-export type SheetKind = "log" | "story" | "mood" | "movie" | "meeting" | "place" | "photo" | "settings";
+export type SubScreen = "movies" | "meetings" | "photos" | "together";
+export type SheetKind = "log" | "story" | "mood" | "movie" | "meeting" | "place" | "photo" | "settings" | "lumi" | "nextMeeting" | "weather";
 
 interface NavState { tab: Tab; sub: SubScreen | null; sheet: SheetKind | null; editId: string | null; sheetDate: string | null }
 
@@ -15,7 +15,7 @@ function initialTab(): Tab {
 }
 function initialSub(): SubScreen | null {
   const h = location.hash.slice(1);
-  return h === "movies" || h === "meetings" || h === "photos" ? h : null;
+  return h === "movies" || h === "meetings" || h === "photos" || h === "together" ? h : null;
 }
 
 function setState(patch: Partial<NavState>) {

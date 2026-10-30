@@ -37,6 +37,14 @@ function block(src: string, from: number): number {
   throw new Error("unbalanced block");
 }
 
+/** Raw source from the first `from` up to (not including) the next `to`. */
+function between(from: string, to: string): string {
+  const a = legacySource.indexOf(from);
+  const b = legacySource.indexOf(to, a);
+  if (a < 0 || b < 0) throw new Error(`legacy slice not found: ${from} … ${to}`);
+  return legacySource.slice(a, b);
+}
+
 /** Source text from `marker` (exclusive when `skipMarker`) through the end of the next block. */
 export function extract(marker: string, opts: { skipMarker?: boolean; occurrence?: number } = {}): string {
   let at = -1;
@@ -71,6 +79,7 @@ export function createLegacy(now: number, DateImpl: DateConstructor) {
   const ops: Op[] = [];
   const fields = new Map<string, any>();
   const prompts: (string | null)[] = [];
+  const local: Record<string, string> = {};
   const ser = (v: unknown) => JSON.parse(JSON.stringify(v, (_k, x) => (x === undefined ? "__undefined__" : x)));
   const ref = (p: string) => ({ __path: p });
 
@@ -97,9 +106,11 @@ export function createLegacy(now: number, DateImpl: DateConstructor) {
     hearts: () => {}, closeStoryModal: () => {}, wireSlider: () => {}, clearMovieSelection: () => {}, closeMvEdit: () => {}, showToast: () => {}, alert: () => {},
     confirm: () => true,
     prompt: () => (prompts.length ? prompts.shift()! : null),
-    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-    setTimeout: () => 0
+    localStorage: { getItem: (k: string) => local[k] ?? null, setItem: () => {}, removeItem: () => {} },
+    setTimeout: () => 0, clearTimeout: () => {}, isFinite, Symbol,
+    __section: "home"
   };
+  context.document = { querySelector: (sel: string) => (sel === ".sec.active" ? { id: "s-" + context.__section } : inert()), querySelectorAll: () => [] };
   context.Date = DateImpl;
   vm.createContext(context);
 
@@ -124,6 +135,23 @@ export function createLegacy(now: number, DateImpl: DateConstructor) {
     var __placeList = ${extract("$('placeList').addEventListener('click', ", { skipMarker: true })};
     var __storyTimeline = ${extract("$('storyTimeline').addEventListener('click', ", { skipMarker: true, occurrence: 1 })};
     var __phSub = ${extract("$('phSub').addEventListener('click', ", { skipMarker: true })};
+
+    // Cycle tracking + Lumi context, taken verbatim as two contiguous slices of the legacy script.
+    var cycData = null, cycLogs = {}, cycHistory = {}, aiMeetings = {}, cycMigrated = false;
+    var cycRef = { __path: 'cycleTracking' }, cycCfgRef = { __path: 'cycleTracking/config' };
+    ${between("const DATE_MET =", "const TRIP")}
+    var AI_NAME = 'Lumi', CYCLE_OWNER = 'Ines';
+    var renderCycle = function () {}, renderSymptoms = function () {};
+    ${between("const CYCLE_DEFAULT_LEN = 28;", "/* ── The ring")}
+    var symDate = () => ($('symDate') && $('symDate').value) || iso();
+    var __cycleLog = ${extract("$('cycleLogToday').addEventListener('click', ", { skipMarker: true })};
+    var __cycleSave = ${extract("$('cycleSave').addEventListener('click', ", { skipMarker: true })};
+    var __cycleClear = ${extract("$('cycleClear').addEventListener('click', ", { skipMarker: true })};
+    var __symClick = ${extract("$('symGrid').addEventListener('click', ", { skipMarker: true })};
+    var __cycRoot = ${extract("onValue(cycRef, ", { skipMarker: true })};
+    ${between("/* ── Context builders", "/* ── Gemini REST call")
+      // Intentional fix carried by the new app: the legacy table forgot "Happy" (#f4a5b5).
+      .replace("const MOOD_LABELS = {", "const MOOD_LABELS = { '#f4a5b5': 'Happy',")}
   `;
   vm.runInContext(script, context, { filename: "legacy-index.html" });
   const g = context as any;
@@ -199,6 +227,30 @@ export function createLegacy(now: number, DateImpl: DateConstructor) {
     },
     async deletePlace(id: string) {
       await g.__placeList({ target: { closest: () => ({ dataset: { id, a: "del" } }) } });
+    },
+    /** Feeds a cycleTracking snapshot through the legacy listener (which may migrate). */
+    async cycleSnapshot(root: unknown) {
+      g.cycMigrated = false;
+      await g.__cycRoot({ val: () => structuredClone(root) });
+      g.cycHistory = structuredClone((root as any)?.history || {});
+      g.cycLogs = structuredClone((root as any)?.logs || {});
+    },
+    async togglePeriodStart() { await g.__cycleLog(); },
+    async saveCycleSettings(v: { startDate: string; cycleLength: string; periodLength: string }) {
+      input({ cycleStart: v.startDate, cycleLen: v.cycleLength, cyclePeriodLen: v.periodLength });
+      await g.__cycleSave();
+    },
+    async clearCycleSettings() { await g.__cycleClear(); },
+    async toggleSymptom(date: string, id: string) {
+      input({ symDate: date });
+      await g.__symClick({ target: { closest: () => ({ dataset: { sym: id }, disabled: false }) } });
+    },
+    /** Evaluates an expression inside the legacy script's scope (reaches its top-level consts). */
+    run(code: string): unknown { return vm.runInContext(code, context); },
+    lumi(section: string, nextMeetingDate: string) {
+      context.__section = section;
+      if (nextMeetingDate) local.nextMeetingDate = nextMeetingDate; else delete local.nextMeetingDate;
+      return { universe: g.universeState() as string, prompt: g.buildSystemPrompt() as string };
     },
     async addPhoto(file: File | null, caption: string) {
       input({ phF: fileField(file), phC: caption, pus: inert() });

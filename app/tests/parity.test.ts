@@ -8,6 +8,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createWrites, InvalidInput, mapTmdb, type Backend, type TmdbRaw } from "../src/data/writes.ts";
 import * as dates from "../src/data/dates.ts";
+import * as cycle from "../src/data/cycle.ts";
+import { buildSystemPrompt, universeState, type Section } from "../src/lumi/context.ts";
 import type { Snapshot } from "../src/data/types.ts";
 import { createLegacy, fakeCompress, frozenDate, type Op } from "./legacy.ts";
 
@@ -49,12 +51,13 @@ const state = {
   places: { ...(backup?.places || {}), ...synthetic.places },
   meetings: backup?.meetings || {},
   moods: backup?.moods || {},
-  photos: backup?.photos || {}
+  photos: backup?.photos || {},
+  cycleTracking: backup?.cycleTracking || null
 };
 
 /* ── harness ───────────────────────────────────────────────────────── */
 
-function newSide() {
+function newSide(cycleRoot: unknown = state.cycleTracking) {
   const ops: Op[] = [];
   const ser = (v: unknown) => JSON.parse(JSON.stringify(v, (_k, x) => (x === undefined ? "__undefined__" : x)));
   const be: Backend = {
@@ -66,7 +69,7 @@ function newSide() {
     upload: async (p, f) => { ops.push(["upload", p, f.name]); return "https://fake.storage/" + p; },
     now: () => NOW
   };
-  const snap: Snapshot = { loaded: true, ...structuredClone(state) } as Snapshot;
+  const snap: Snapshot = { loaded: true, ...structuredClone(state), cycleTracking: structuredClone(cycleRoot) } as Snapshot;
   return { ops, writes: createWrites(be, () => snap) };
 }
 
@@ -270,4 +273,170 @@ test("dates: helpers match legacy across month ends, leap days and DST", () => {
       globalThis.Date = RealDate;
     }
   }
+});
+
+/* ── cycle tracking ────────────────────────────────────────────────── */
+
+const realCycle = state.cycleTracking;
+const cycleRoots: [string, unknown][] = [
+  ["real backup", realCycle],
+  ["empty", null],
+  ["legacy flat root", { startDate: "2026-08-01", cycleLength: 30, logs: { "2026-08-03": ["cramps"] } }],
+  ["flat root, no lengths", { startDate: "2026-08-01" }],
+  ["history only (1)", { history: { "2026-10-01": 1 } }],
+  ["history 2 + config", { config: { startDate: "2026-07-01", cycleLength: 31, periodLength: 4, updatedAt: 1 }, history: { "2026-09-01": 1, "2026-09-29": 2 } }],
+  ["history with outliers", { history: { "2026-03-01": 1, "2026-03-02": 2, "2026-03-30": 3, "2026-06-30": 4, "2026-07-27": 5, "2026-08-26": 6, "2026-09-24": 7, "2026-10-22": 8, "2026-10-23": 9 } }],
+  ["gaps exactly 15 and 60", { history: { "2026-06-01": 1, "2026-06-16": 2, "2026-08-15": 3, "2026-08-29": 4, "2026-10-29": 5 } }],
+  ["gaps 14 and 61 (both dropped)", { config: { startDate: "2026-05-01", cycleLength: 33 }, history: { "2026-07-01": 1, "2026-07-15": 2, "2026-09-14": 3 } }],
+  ["all gaps outliers", { config: { startDate: "2026-01-01", cycleLength: 26 }, history: { "2026-10-01": 1, "2026-10-03": 2 } }],
+  ["future start", { config: { startDate: "2027-01-01", cycleLength: 28, periodLength: 5 } }],
+  ["odd typed lengths", { config: { startDate: "2026-09-30", cycleLength: "19", periodLength: "12" } }],
+  ["long cycle", { config: { startDate: "2026-09-01", cycleLength: 46, periodLength: 0 } }],
+  ["short cycle", { config: { startDate: "2026-10-10", cycleLength: 20, periodLength: 9 } }]
+];
+
+const CYCLE_NOWS = ["2026-10-30T21:15:00Z", "2026-03-29T01:30:00Z", "2026-10-25T00:30:00Z", "2026-12-31T23:59:59Z", "2028-02-29T08:00:00Z", "2026-10-18T10:00:00Z"].map(t => Date.parse(t));
+
+/** Runs fn with Date pinned to `t` in this realm, and returns the legacy vm pinned to the same instant. */
+function at<T>(t: number, fn: (o: ReturnType<typeof createLegacy>) => T): T {
+  const Frozen = frozenDate(t);
+  const o = createLegacy(t, Frozen);
+  const Real = globalThis.Date;
+  globalThis.Date = Frozen;
+  try { return fn(o); } finally { globalThis.Date = Real; }
+}
+
+/** Same as at(), but keeps the clock pinned until an async body has finished. */
+async function atAsync(t: number, fn: (o: ReturnType<typeof createLegacy>) => Promise<void>): Promise<void> {
+  const Frozen = frozenDate(t);
+  const o = createLegacy(t, Frozen);
+  const Real = globalThis.Date;
+  globalThis.Date = Frozen;
+  try { await fn(o); } finally { globalThis.Date = Real; }
+}
+
+test("cycle: dial maths and predictions match legacy (cycleInfo + cycleConfig)", async () => {
+  for (const t of CYCLE_NOWS) {
+    for (const [label, root] of cycleRoots) {
+      await atAsync(t, async o => {
+        await o.cycleSnapshot(root);
+        const g = o.global;
+        const r = root as any;
+        const settings = cycle.cycleSettings(r);
+        assert.equal(JSON.stringify(settings), JSON.stringify(g.cycData), `settings ${label}`);
+        const effNew = cycle.cycleConfig(settings, r?.history);
+        const effOld = g.cycleConfig();
+        assert.equal(JSON.stringify(effNew), JSON.stringify(effOld), `cycleConfig ${label} @ ${new Date(t).toISOString()}`);
+        assert.equal(JSON.stringify(cycle.cycleInfo(effNew)), JSON.stringify(g.cycleInfo(effOld)), `cycleInfo ${label} @ ${new Date(t).toISOString()}`);
+        // Every day of the next two cycles, via the explicit "today" argument.
+        for (let d = 0; d < 60 && effNew; d += 3) {
+          const day = new Date(t + d * 86400000).toISOString().slice(0, 10) + "T00:00:00";
+          assert.equal(JSON.stringify(cycle.cycleInfo(effNew, day)), JSON.stringify(g.cycleInfo(effOld, day)), `cycleInfo ${label} on ${day}`);
+        }
+        const info = cycle.cycleInfo(effNew);
+        if (info) {
+          // UI copy that the legacy renderCycle() produced.
+          for (const n of [0, 1, 2, info.daysToNext]) assert.equal(cycle.inDays(n), o.run(`inDays(${n})`));
+          if (effNew) assert.equal(cycle.joinList(effNew.cycleLens), o.run(`joinList(${JSON.stringify(effOld.cycleLens)})`));
+        }
+      });
+    }
+  }
+});
+
+async function sameCycle(label: string, root: unknown, t: number, runOld: (o: ReturnType<typeof createLegacy>) => Promise<unknown>, runNew: (w: ReturnType<typeof newSide>["writes"]) => Promise<unknown>) {
+  const Frozen = frozenDate(t);
+  const o = createLegacy(t, Frozen);
+  o.setState({ sData: state.storyEvents, mvData: state.movies, plData: state.places, phData: state.photos, moods: state.moods });
+  await o.cycleSnapshot(root);
+  o.ops.length = 0; // only the action itself, not the snapshot's migration
+  const n = newSide(root);
+  const Real = globalThis.Date;
+  globalThis.Date = Frozen;
+  try {
+    await runOld(o);
+    let refused = false;
+    try { await runNew(n.writes); } catch (err) { if (!(err instanceof InvalidInput)) throw err; refused = true; }
+    assert.equal(JSON.stringify(n.ops), JSON.stringify(o.ops), `${label}: writes differ`);
+    if (refused) assert.equal(o.ops.length, 0, `${label}: new refused but legacy wrote`);
+  } finally { globalThis.Date = Real; }
+}
+
+test("cycle: period start, settings, clear and symptom writes match legacy", async () => {
+  const t = NOW;
+  const today = new Date(t).toISOString().slice(0, 10); // NOW is 21:15Z → same local date in the test zones
+  for (const [label, root] of cycleRoots) {
+    const r = root as any;
+    await sameCycle(`period toggle ${label}`, root, t, o => o.togglePeriodStart(), w => w.togglePeriodStart(at(t, o => o.global.iso())));
+    const loggedToday = { ...(r || {}), history: { ...(r?.history || {}), [at(t, o => o.global.iso())]: 123 } };
+    await sameCycle(`period untoggle ${label}`, loggedToday, t, o => o.togglePeriodStart(), w => w.togglePeriodStart(at(t, o => o.global.iso())));
+    for (const v of [
+      { startDate: "2026-10-01", cycleLength: "28", periodLength: "5" },
+      { startDate: "2026-10-01", cycleLength: "12", periodLength: "40" },
+      { startDate: "2026-10-01", cycleLength: "", periodLength: "" },
+      { startDate: "2026-10-01", cycleLength: "29.7", periodLength: "abc" },
+      { startDate: "2026-10-01", cycleLength: "60", periodLength: "9" },
+      { startDate: "", cycleLength: "28", periodLength: "5" }
+    ]) await sameCycle(`save ${JSON.stringify(v)} on ${label}`, root, t, o => o.saveCycleSettings(v), w => w.saveCycleSettings(v));
+    await sameCycle(`clear ${label}`, root, t, o => o.clearCycleSettings(), w => w.clearCycleSettings());
+    const logDays = Object.keys(r?.logs || {});
+    for (const [date, id] of [[today, "cramps"], [logDays[0] ?? today, (r?.logs?.[logDays[0]] || ["calm"])[0]], [logDays[0] ?? today, "glowing"]] as [string, string][]) {
+      await sameCycle(`symptom ${id} ${date} on ${label}`, root, t, o => o.toggleSymptom(date, id), w => w.toggleSymptom(date, id));
+    }
+  }
+  void today;
+});
+
+test("cycle: one-time migration of the old flat-root shape matches legacy", async () => {
+  for (const [label, root] of cycleRoots) {
+    const o = createLegacy(NOW, frozenDate(NOW));
+    await o.cycleSnapshot(root);
+    const n = newSide(root);
+    await n.writes.migrateCycle();
+    await n.writes.migrateCycle(); // once per session, like the legacy flag
+    assert.equal(JSON.stringify(n.ops), JSON.stringify(o.ops), `migrate ${label}`);
+  }
+});
+
+/* ── Lumi ──────────────────────────────────────────────────────────── */
+
+test("lumi: the whole-universe prompt matches legacy for every screen", () => {
+  const sections: Section[] = ["home", "story", "movies", "meetings", "places", "mood", "photos", "together"];
+  for (const t of [NOW, Date.parse("2026-11-12T08:00:00Z")]) {
+    for (const meeting of ["", "2026-12-20"]) {
+      at(t, o => {
+        o.setState({ sData: state.storyEvents, mvData: state.movies, plData: state.places, phData: state.photos, moods: state.moods });
+        o.global.aiMeetings = structuredClone(state.meetings);
+        o.global.cycData = cycle.cycleSettings(state.cycleTracking as any);
+        o.global.cycHistory = structuredClone((state.cycleTracking as any)?.history || {});
+        o.global.cycLogs = structuredClone((state.cycleTracking as any)?.logs || {});
+        const lumiState = { ...structuredClone(state), cycleTracking: state.cycleTracking as any, nextMeetingDate: meeting };
+        for (const sec of sections) {
+          const old = o.lumi(sec, meeting);
+          assert.equal(universeState(lumiState), old.universe, `universe @ ${sec}`);
+          assert.equal(buildSystemPrompt(lumiState, sec), old.prompt, `prompt @ ${sec} meeting=${meeting}`);
+        }
+      });
+    }
+  }
+});
+
+test("lumi: long histories are cut to budget with an honest count, same as legacy", () => {
+  // Far more than the 9000-character budgets, so the "(N further entries…)" path runs.
+  const moods: Record<string, unknown> = {}, movies: Record<string, unknown> = {}, story: Record<string, unknown> = {};
+  for (let i = 0; i < 900; i++) {
+    const d = new Date(Date.UTC(2024, 0, 1) + i * 86400000).toISOString().slice(0, 10);
+    moods[d] = { color: ["#f4a5b5", "#e8607a", "#123456"][i % 3], text: "day " + i + " " + "x".repeat(i % 37) };
+    movies["m" + i] = { title: "Film " + i, date: d, ratingA: i % 11, ratingI: (i * 7) % 11, note: "n".repeat(i % 50), year: "20" + (i % 25) };
+    story["s" + i] = { date: d, title: "Moment " + i, text: "t".repeat(i % 400), photoUrl: i % 5 ? "" : "https://x" };
+  }
+  at(NOW, o => {
+    o.setState({ sData: story, mvData: movies, plData: {}, phData: {}, moods });
+    o.global.aiMeetings = {};
+    o.global.cycData = null; o.global.cycHistory = {}; o.global.cycLogs = {};
+    const big = { moods, movies, storyEvents: story, places: {}, photos: {}, meetings: {}, cycleTracking: null, nextMeetingDate: "" };
+    const old = o.lumi("home", "");
+    assert.match(old.universe, /further entries exist/);
+    assert.equal(universeState(big), old.universe);
+  });
 });

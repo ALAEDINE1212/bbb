@@ -1,5 +1,5 @@
 /** Saving is OFF unless the build sets VITE_WRITE_ENABLED=1. Default builds are a read-only shadow. */
-export const WRITE_ENABLED = import.meta.env.VITE_WRITE_ENABLED === "1";
+export const WRITE_ENABLED = import.meta.env?.VITE_WRITE_ENABLED === "1";
 
 // Copied from the legacy index.html ("DATES CONFIG").
 export const DATE_MET = "2025-08-16";

@@ -1,4 +1,4 @@
-import { CakeSlice, CalendarCheck, CalendarClock, CalendarHeart, Camera, ChevronRight, Clapperboard, Gift, Heart, Sparkles } from "lucide-react";
+import { CakeSlice, CalendarCheck, CalendarClock, CalendarHeart, Camera, ChevronRight, Clapperboard, Gift, Heart, MonitorPlay, Sparkles } from "lucide-react";
 import { BF_BD, BF_YEAR, DATE_MET, DATE_OFF, INES_BD } from "@/config";
 import { useData } from "@/data/store";
 import { dBetween, daysTo, dUntil, iso, ndIso, nextMiv, nextOcc } from "@/data/dates";
@@ -8,10 +8,10 @@ import { Ring } from "@/ui/Ring";
 import { StatusPill } from "@/ui/Pill";
 import { Squircle } from "@/ui/Field";
 import { ScreenTitle } from "./common";
-
-function readNextMeeting(): string {
-  try { return localStorage.getItem("nextMeetingDate") || ""; } catch { return ""; }
-}
+import { CycleHomeCard } from "./Cycle";
+import { WeatherCard } from "./Weather";
+import { useLocal } from "@/lib/local";
+import { dismissInstall, promptInstall, useInstallable } from "@/lib/pwa";
 
 export function Home() {
   const d = useData(s => s);
@@ -28,7 +28,7 @@ export function Home() {
   const moviesThisMonth = Object.values(d.movies).filter(m => (m.date || "").startsWith(monthPrefix)).length;
   const movieCount = Object.keys(d.movies).length;
 
-  const nextMeeting = readNextMeeting();
+  const nextMeeting = useLocal("nextMeetingDate");
   const meetDays = nextMeeting ? dUntil(nextMeeting) : null;
   const ib = nextOcc(INES_BD), bb = nextOcc(BF_BD);
   const latestStory = Object.entries(d.storyEvents).sort((a, b) => (b[1].date || "").localeCompare(a[1].date || ""))[0];
@@ -36,6 +36,15 @@ export function Home() {
   return (
     <div>
       <ScreenTitle>Today, {new Date().toLocaleDateString(undefined, { month: "long", day: "numeric" })}</ScreenTitle>
+
+      <InstallCard />
+      <Card className="relative mb-2.5 overflow-hidden p-5" style={{ background: "linear-gradient(125deg, var(--card) 35%, color-mix(in srgb, var(--accent-1) 16%, var(--card)))" }}>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--accent-1)_14%,transparent)] px-2.5 py-1 text-[11px] font-bold tracking-[0.08em] text-accent-1"><span className="size-1.5 rounded-full bg-accent-1" />DAY {dBetween(DATE_OFF)} OF US</span>
+        <div className="mt-3 font-display text-[26px] font-semibold tracking-tight text-ink">Hello, <span className="italic text-accent-1">Ines</span></div>
+        <p className="mt-1 text-[14px] text-ink-2">Every day with you is a memory worth keeping.</p>
+        <p className="mt-1 text-[13px] italic text-accent-1">— alaedine</p>
+        <Heart className="absolute -right-3 -top-2 size-28 rotate-12 fill-accent-1 text-accent-1 opacity-[0.08]" />
+      </Card>
 
       <Card className="grid grid-cols-3 divide-x divide-line py-5">
         <RingCell label="Us" caption={mivDays != null ? `${mivDays}d to month` : "—"}>
@@ -58,18 +67,23 @@ export function Home() {
         <StatusPill
           icon={<CalendarClock className="size-[18px]" />} tint="var(--accent-1)"
           title={meetDays == null ? "Next meeting" : meetDays > 0 ? `${meetDays} days` : meetDays === 0 ? "Today! 🎉" : "Passed"}
-          subtitle={nextMeeting ? ndIso(nextMeeting) : "Not set yet"}
+          subtitle={nextMeeting ? ndIso(nextMeeting) : "Tap to set"} onClick={() => nav.open("nextMeeting")}
         />
         <StatusPill icon={<CalendarCheck className="size-[18px]" />} tint="var(--accent-1)" title={mivDays != null ? `${mivDays} days` : "—"} subtitle="Monthiversary" />
         <StatusPill icon={<CakeSlice className="size-[18px]" />} tint="var(--accent-3)" title={`${daysTo(ib)} days`} subtitle="Ines's birthday" />
         <StatusPill icon={<Gift className="size-[18px]" />} tint="var(--accent-3)" title={`${daysTo(bb)} days`} subtitle={`His birthday · ${bb.getFullYear() - BF_YEAR}`} />
       </div>
 
+      <CycleHomeCard />
+      <WeatherCard />
+
       <SectionTitle>Collections</SectionTitle>
       <Card className="divide-y divide-line overflow-hidden">
         <CollectionRow icon={<Clapperboard />} color="var(--accent-2)" title="Movies" meta={`${movieCount} watched together`} onClick={() => nav.sub("movies")} />
         <CollectionRow icon={<CalendarHeart />} color="var(--accent-1)" title="Meetings" meta={`${Object.keys(d.meetings).length} times together`} onClick={() => nav.sub("meetings")} />
         <CollectionRow icon={<Camera />} color="var(--accent-2)" title="Photos" meta={`${Object.keys(d.photos).length} in the gallery`} onClick={() => nav.sub("photos")} />
+        <CollectionRow icon={<MonitorPlay />} color="var(--accent-2)" title="Together" meta="Video call, screen share & chat" onClick={() => nav.sub("together")} />
+        <CollectionRow icon={<Sparkles />} color="var(--accent-2)" title="Ask Lumi" meta="Your little universe's companion" onClick={() => nav.open("lumi")} />
       </Card>
 
       {latestStory && (
@@ -122,5 +136,18 @@ function CollectionRow({ icon, color, title, meta, onClick }: { icon: React.Reac
       </span>
       <ChevronRight className="size-4 text-ink-3" />
     </button>
+  );
+}
+
+function InstallCard() {
+  const can = useInstallable();
+  if (!can) return null;
+  return (
+    <Card className="mb-2.5 flex items-center gap-3 p-3.5">
+      <img src="/icon-192.png" alt="" className="size-10 rounded-[11px]" />
+      <span className="min-w-0 flex-1 text-[14px] font-semibold text-ink">Install Our Little Universe<span className="block text-[12px] font-normal text-ink-2">Opens like an app, works offline</span></span>
+      <button onClick={() => void promptInstall()} className="shrink-0 rounded-full bg-[var(--button)] px-3.5 py-1.5 text-[13px] font-semibold text-[var(--button-ink)]">Install</button>
+      <button aria-label="Not now" onClick={dismissInstall} className="shrink-0 text-[12px] text-ink-3">Later</button>
+    </Card>
   );
 }

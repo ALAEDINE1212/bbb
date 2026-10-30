@@ -10,6 +10,10 @@ import { PrimaryButton } from "@/ui/Controls";
 import { NumberStepper } from "@/ui/NumberStepper";
 import { DateInput, InlineField, Squircle, TextArea, TextInput } from "@/ui/Field";
 import { haptic } from "@/lib/haptics";
+import { readLocal, writeLocal } from "@/lib/local";
+import { WeatherSheet } from "@/screens/Weather";
+import { PickMap } from "@/screens/Places";
+import { coordsFromMapsLink, dateToISODate, readExifTags, reverseGeocodePlace } from "@/lib/exif";
 import { cn } from "@/lib/cn";
 
 /** Every input sheet, mounted once at the app root and driven by nav.open(kind, editId). */
@@ -24,6 +28,8 @@ export function Sheets() {
       <MeetingSheet open={sheet === "meeting"} />
       <PlaceSheet open={sheet === "place"} editId={editId} />
       <PhotoSheet open={sheet === "photo"} />
+      <NextMeetingSheet open={sheet === "nextMeeting"} />
+      <WeatherSheet />
     </>
   );
 }
@@ -63,9 +69,13 @@ function LogSheet({ open }: { open: boolean }) {
           </button>
         ))}
       </div>
-      <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-card-2 p-3.5 text-[13px] leading-snug text-ink-2">
-        <span className="mt-0.5 flex shrink-0 gap-1 text-ink-3"><MonitorPlay className="size-4" /><Sparkles className="size-4" /></span>
-        <span>Together (video calls) and Lumi (AI) aren't rebuilt yet — they're still in the current app.</span>
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+        <button onClick={() => { haptic("tap"); nav.close(); nav.sub("together"); }} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3.5 py-3.5 text-left text-[15px] font-semibold text-ink active:scale-[0.98]">
+          <Squircle color="var(--accent-2)"><MonitorPlay /></Squircle>Together
+        </button>
+        <button onClick={() => { haptic("tap"); nav.open("lumi"); }} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3.5 py-3.5 text-left text-[15px] font-semibold text-ink active:scale-[0.98]">
+          <Squircle color="var(--accent-2)"><Sparkles /></Squircle>Ask Lumi
+        </button>
       </div>
     </Sheet>
   );
@@ -253,6 +263,7 @@ function PlaceSheet({ open, editId }: { open: boolean; editId: string | null }) 
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [gallery, setGallery] = useState<string | null>(null);
+  const [mapsLink, setMapsLink] = useState("");
   const photos = useData(s => s.photos);
   const { busy, submit } = useSubmit();
   useEffect(() => {
@@ -260,8 +271,32 @@ function PlaceSheet({ open, editId }: { open: boolean; editId: string | null }) 
     setGallery(null);
     const p = editId ? places[editId] : null;
     setName(p?.name || ""); setDate(p?.date || iso()); setLat(p ? String(p.lat ?? "") : ""); setLng(p ? String(p.lng ?? "") : "");
-    setNote(p?.note || ""); setFile(null);
+    setNote(p?.note || ""); setFile(null); setMapsLink("");
   }, [open, editId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setCoords = (la: number, lo: number) => { setLat(la.toFixed(6)); setLng(lo.toFixed(6)); };
+  const onMapsLink = (url: string) => {
+    setMapsLink(url);
+    const c = coordsFromMapsLink(url.trim());
+    if (c) { haptic("success"); setCoords(c.lat, c.lng); }
+  };
+  /* legacy plPf change: read GPS + date from the ORIGINAL file, before any re-encoding. */
+  const onPlacePhoto = async (f: File | null) => {
+    setFile(f);
+    setGallery(null);
+    if (!f) return;
+    const tags = await readExifTags(f);
+    const dateISO = dateToISODate(tags.dateTime);
+    if (dateISO) setDate(dateISO);
+    if (tags.gps) {
+      haptic("success");
+      setCoords(tags.gps.lat, tags.gps.lon);
+      toast("Location read from the photo 📍");
+      reverseGeocodePlace(tags.gps.lat, tags.gps.lon).then(n => { if (n) setName(cur => cur.trim() ? cur : n); }).catch(() => {});
+    } else {
+      toast("No GPS metadata found in photo — pick on map or paste a link.", "info");
+    }
+  };
 
   const useHere = () => {
     navigator.geolocation?.getCurrentPosition(
@@ -282,9 +317,13 @@ function PlaceSheet({ open, editId }: { open: boolean; editId: string | null }) 
           <TextInput inputMode="decimal" placeholder="Latitude" value={lat} onChange={e => setLat(e.target.value)} />
           <TextInput inputMode="decimal" placeholder="Longitude" value={lng} onChange={e => setLng(e.target.value)} />
         </div>
-        <button onClick={useHere} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card-2 py-3 text-[14px] font-semibold text-accent-1"><MapPin className="size-4" />Use my location</button>
+        {open && <PickMap lat={lat ? parseFloat(lat) : null} lng={lng ? parseFloat(lng) : null} onPick={setCoords} />}
+        <div className="grid grid-cols-[auto_1fr] gap-2.5">
+          <button onClick={useHere} className="flex items-center justify-center gap-1.5 rounded-2xl bg-card-2 px-3.5 text-[14px] font-semibold text-accent-1"><MapPin className="size-4" />Here</button>
+          <TextInput type="url" placeholder="…or paste a Google Maps link" value={mapsLink} onChange={e => onMapsLink(e.target.value)} />
+        </div>
         <TextArea placeholder="Note" rows={3} value={note} onChange={e => setNote(e.target.value)} />
-        {!editId && <PhotoPicker file={file} onFile={f => { setFile(f); setGallery(null); }} />}
+        {!editId && <PhotoPicker file={file} onFile={f => void onPlacePhoto(f)} />}
         {!editId && !file && Object.keys(photos).length > 0 && (
           <div>
             <div className="mb-1.5 px-1 text-[12px] font-semibold text-ink-2">Or pick from uploaded photos</div>
@@ -315,6 +354,18 @@ function PhotoSheet({ open }: { open: boolean }) {
         <PhotoPicker file={file} onFile={setFile} />
         <TextInput placeholder="Caption" value={caption} onChange={e => setCaption(e.target.value)} />
       </div>
+    </Sheet>
+  );
+}
+
+/** legacy meetingPopup: the next meeting date lives on this device ("nextMeetingDate"). */
+function NextMeetingSheet({ open }: { open: boolean }) {
+  const [date, setDate] = useState("");
+  useEffect(() => { if (open) setDate(readLocal("nextMeetingDate")); }, [open]);
+  return (
+    <Sheet open={open} onClose={close} title="Next meeting" subtitle="When do you see each other next?"
+      footer={<PrimaryButton onClick={() => { if (!date) return invalid("Pick a date."); writeLocal("nextMeetingDate", date); toast("Can't wait 💕"); close(); }}>Save</PrimaryButton>}>
+      <InlineField label="Date"><DateInput value={date} min={iso()} onChange={e => setDate(e.target.value)} /></InlineField>
     </Sheet>
   );
 }

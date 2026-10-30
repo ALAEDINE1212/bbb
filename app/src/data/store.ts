@@ -4,17 +4,17 @@ import { getDatabase, onValue, push, ref, remove, set, update } from "firebase/d
 import { getDownloadURL, getStorage, ref as storageRef, uploadBytes } from "firebase/storage";
 import { firebaseConfig, STORAGE_BUCKET, TMDB_IMG_LG, TMDB_KEY, WRITE_ENABLED } from "@/config";
 import type { Snapshot } from "./types";
-import { compressImage } from "./images";
+import { prepareImage } from "./images";
 import { createWrites, InvalidInput, mapTmdb, type Backend, type TmdbPick, type TmdbRaw } from "./writes";
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+export const db = getDatabase(app);
 const storage = getStorage(app, STORAGE_BUCKET);
 
-const PATHS = ["storyEvents", "meetings", "moods", "movies", "places", "photos"] as const;
+const PATHS = ["storyEvents", "meetings", "moods", "movies", "places", "photos", "cycleTracking"] as const;
 type Path = (typeof PATHS)[number];
 
-let snap: Snapshot = { loaded: false, storyEvents: {}, meetings: {}, moods: {}, movies: {}, places: {}, photos: {} };
+let snap: Snapshot = { loaded: false, storyEvents: {}, meetings: {}, moods: {}, movies: {}, places: {}, photos: {}, cycleTracking: null };
 const seen = new Set<Path>();
 const listeners = new Set<() => void>();
 let started = false;
@@ -27,8 +27,9 @@ function start() {
   for (const path of PATHS) {
     onValue(ref(db, path), s => {
       seen.add(path);
-      snap = { ...snap, [path]: s.val() || {}, loaded: seen.size === PATHS.length };
+      snap = { ...snap, [path]: s.val() || (path === "cycleTracking" ? null : {}), loaded: seen.size === PATHS.length };
       emit();
+      if (path === "cycleTracking" && WRITE_ENABLED) void writes.migrateCycle().catch(() => {});
     }, () => { seen.add(path); snap = { ...snap, loaded: seen.size === PATHS.length }; emit(); });
   }
 }
@@ -50,7 +51,7 @@ const firebase: Backend = {
   update: (path, data) => update(ref(db, path), data),
   set: (path, data) => set(ref(db, path), data),
   remove: path => remove(ref(db, path)),
-  prepare: file => compressImage(file),
+  prepare: file => prepareImage(file),
   upload: async (path, file) => { const r = storageRef(storage, path); await uploadBytes(r, file); return getDownloadURL(r); },
   now: () => Date.now()
 };
@@ -74,6 +75,10 @@ export const addPlace = guarded("addPlace");
 export const editPlace = guarded("editPlace");
 export const deletePlace = guarded("deletePlace");
 export const addPhoto = guarded("addPhoto");
+export const togglePeriodStart = guarded("togglePeriodStart");
+export const saveCycleSettings = guarded("saveCycleSettings");
+export const clearCycleSettings = guarded("clearCycleSettings");
+export const toggleSymptom = guarded("toggleSymptom");
 
 export async function tmdbSearch(query: string): Promise<TmdbPick[]> {
   try {

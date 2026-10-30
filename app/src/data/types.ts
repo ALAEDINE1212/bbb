@@ -1,5 +1,6 @@
 // Shapes as they exist in the Realtime Database today (checked against the 2026-10-30 backup).
 // Records keep any unknown keys untouched; these types only name what the app reads.
+import type { CycleRoot } from "./cycle.ts";
 
 export interface StoryEvent { date: string; title: string; text: string; photoUrl?: string | null; photoCaption?: string }
 export interface Meeting { date: string; where: string; how: string }
@@ -21,6 +22,7 @@ export interface Snapshot {
   movies: Coll<Movie>;
   places: Coll<Place>;
   photos: Coll<Photo>;
+  cycleTracking: CycleRoot | null;
 }
 
 export type Entries<T> = [string, T][];

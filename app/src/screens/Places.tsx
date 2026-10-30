@@ -90,3 +90,33 @@ export function Places() {
 function escapeHtml(s: string) {
   return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
+
+/** Small map inside the place sheet: tap to drop the pin (legacy map click), follows typed coords. */
+export function PickMap({ lat, lng, onPick }: { lat: number | null; lng: number | null; onPick: (lat: number, lng: number) => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const map = useRef<L.Map | null>(null);
+  const pin = useRef<L.CircleMarker | null>(null);
+  const pickRef = useRef(onPick);
+  pickRef.current = onPick;
+
+  useEffect(() => {
+    if (!host.current) return;
+    const m = L.map(host.current, { zoomControl: false, attributionControl: false }).setView([lat ?? 40, lng ?? 5], lat != null ? 12 : 3);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, className: prefersDark() ? "tiles-dark" : "" }).addTo(m);
+    m.on("click", e => pickRef.current(Number(e.latlng.lat.toFixed(6)), Number(e.latlng.lng.toFixed(6))));
+    map.current = m;
+    setTimeout(() => m.invalidateSize(), 250); // the sheet is still sliding in when this mounts
+    return () => { m.remove(); map.current = null; pin.current = null; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) { pin.current?.remove(); pin.current = null; return; }
+    if (!pin.current) pin.current = L.circleMarker([lat, lng], { radius: 8, color: "#fff", weight: 2, fillColor: "#e8557a", fillOpacity: 1 }).addTo(m);
+    else pin.current.setLatLng([lat, lng]);
+    if (!m.getBounds().contains([lat, lng])) m.setView([lat, lng], Math.max(m.getZoom(), 11));
+  }, [lat, lng]);
+
+  return <div ref={host} className="relative isolate h-[180px] w-full overflow-hidden rounded-2xl" />;
+}

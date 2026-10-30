@@ -2,12 +2,13 @@
 // same paths, same key order, same trimming/parsing, same "do nothing" cases.
 // No imports with side effects so tests/parity.test.ts can run this file under plain Node.
 import type { Snapshot } from "./types.ts";
+import { CYCLE_DEFAULT_LEN, CYCLE_DEFAULT_PERIOD } from "./cycle.ts";
 
 /** What a write needs from the outside world. Firebase in the app, a recorder in tests. */
 export interface Backend {
   push(path: string, data: object): Promise<void>;
   update(path: string, data: object): Promise<void>;
-  set(path: string, data: object): Promise<void>;
+  set(path: string, data: object | number): Promise<void>;
   remove(path: string): Promise<void>;
   /** Legacy toDisplayableImage + compressImage: returns the file that gets uploaded. */
   prepare(file: File): Promise<File>;
@@ -40,6 +41,7 @@ export function mapTmdb(r: TmdbRaw, imgBase: string): TmdbPick {
 }
 
 export function createWrites(be: Backend, snap: () => Snapshot) {
+  let cycMigrated = false;
   return {
     /** legacy saveStory() */
     async saveStory(input: { editId: string; date: string; title: string; text: string; file?: File | null }) {
@@ -166,6 +168,54 @@ export function createWrites(be: Backend, snap: () => Snapshot) {
       const ts = be.now();
       const url = await be.upload(`photos/${ts}_${f.name}`, f);
       await be.push("photos", { url, caption: c, path: `photos/${ts}_${f.name}` });
+    },
+
+    /** legacy cycleTracking listener: copy the old flat-root shape into config, once per session. */
+    async migrateCycle() {
+      const raw = snap().cycleTracking;
+      const legacy = raw && !raw.config && raw.startDate ? raw : null;
+      if (!legacy || cycMigrated) return;
+      cycMigrated = true;
+      await be.set("cycleTracking/config", {
+        startDate: legacy.startDate,
+        cycleLength: legacy.cycleLength || CYCLE_DEFAULT_LEN,
+        periodLength: legacy.periodLength || CYCLE_DEFAULT_PERIOD,
+        updatedAt: legacy.updatedAt || be.now()
+      });
+    },
+
+    /** legacy cycleLogToday click (the UI confirms before removing). */
+    async togglePeriodStart(date: string) {
+      const history = snap().cycleTracking?.history || {};
+      if (history[date]) await be.remove("cycleTracking/history/" + date);
+      else await be.set("cycleTracking/history/" + date, be.now());
+    },
+
+    /** legacy cycleSave click. Inputs are the raw field strings. */
+    async saveCycleSettings(input: { startDate: string; cycleLength: string; periodLength: string }) {
+      const startDate = input.startDate;
+      if (!startDate) throw new InvalidInput("Pick the first day of the last period.");
+      const cycleLength = Math.min(45, Math.max(20, parseInt(input.cycleLength, 10) || CYCLE_DEFAULT_LEN));
+      const periodLength = Math.min(10, cycleLength - 10, Math.max(1, parseInt(input.periodLength, 10) || CYCLE_DEFAULT_PERIOD));
+      /* set() on config only — the logs node sits beside it and must survive. */
+      await be.set("cycleTracking/config", { startDate, cycleLength, periodLength, updatedAt: be.now() });
+    },
+
+    /** legacy cycleClear click (the UI confirms first). Logs and history are kept. */
+    async clearCycleSettings() {
+      await be.remove("cycleTracking/config");
+      /* Legacy installs also have the fields loose on the root; clear those one by one. */
+      await be.update("cycleTracking", { startDate: null, cycleLength: null, periodLength: null, updatedAt: null }).catch(() => {});
+      cycMigrated = false;
+    },
+
+    /** legacy symGrid click: toggle one symptom for a day; an empty day is removed. */
+    async toggleSymptom(date: string, id: string) {
+      const cur = (snap().cycleTracking?.logs?.[date] || []).slice();
+      const at = cur.indexOf(id);
+      if (at === -1) cur.push(id); else cur.splice(at, 1);
+      if (cur.length) await be.set("cycleTracking/logs/" + date, cur);
+      else await be.remove("cycleTracking/logs/" + date);
     }
   };
 }

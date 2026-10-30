@@ -8,7 +8,8 @@ import { Card, SectionTitle } from "@/ui/Card";
 import { Ring } from "@/ui/Ring";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/cn";
-import { AddPill, ScreenTitle } from "./common";
+import { AddPill, MoodReminder, ScreenTitle } from "./common";
+import { CycleCard } from "./Cycle";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -42,7 +43,11 @@ export function Mood() {
 
   return (
     <div>
-      <ScreenTitle action={<AddPill onClick={() => nav.open("mood", null, today)}>Log</AddPill>}>Mood</ScreenTitle>
+      <ScreenTitle action={<AddPill onClick={() => nav.open("mood", null, today)}>Log</AddPill>}>Mood & Cycle</ScreenTitle>
+      <MoodReminder />
+      <CycleCard />
+
+      <SectionTitle>Mood diary</SectionTitle>
 
       <Card className="flex items-center gap-4 p-4">
         <Ring value={logged.length / elapsed} color="var(--accent-3)" color2="var(--accent-3b)" size={88} caption="logged" />
